@@ -144,11 +144,18 @@ function checkKeyLength(alg, keybuffer) {
   return Promise.reject(new Error('insufficient key length. You need at least ' + requiredLength + ' chars for ' + alg));
 }
 
-function generateSignature(event) {
-  let text = $('#ta_headerlist').val();
-  let re2 = new RegExp(':(.+)$');
-  let onNewlines = new RegExp('(\r\n|\n)', 'g');
-  let headers = {};
+function getStringToSign(headers, ordering) {
+  let list = (ordering) ? ordering.split(' ') : Object.keys(headers);
+  return list
+        .map(hdrName => hdrName.toLowerCase() + ': ' + headers[hdrName])
+        .join('\n');
+}
+
+function getHeaders() {
+  let text = $('#ta_headerlist').val(),
+      re2 = new RegExp(':(.+)$'),
+      onNewlines = new RegExp('(\r\n|\n)', 'g'),
+      headers = {};
   text
     .split(onNewlines)
     .forEach(line => {
@@ -159,9 +166,13 @@ function generateSignature(event) {
         headers[hname] = parts[1];
       }
     });
+  return headers;
+}
 
-  let alg = $('.sel-alg').find(':selected').text();
-  let p = null;
+function generateSignature(event) {
+  let headers = getHeaders(),
+      alg = $('.sel-alg').find(':selected').text(),
+      p = null;
   if (alg == 'hmac-sha256') {
     p = getSymmetricKeyBuffer(alg)
       .then( keyBuffer => checkKeyLength(alg, keyBuffer))
@@ -177,9 +188,7 @@ function generateSignature(event) {
 
   p = p
     .then( signingKey => {
-      const stringToSign = Object.keys(headers)
-        .map(hdrName => hdrName.toLowerCase() + ': ' + headers[hdrName])
-        .join('\n');
+      const stringToSign = getStringToSign(headers);
       const buf = new TextEncoder().encode(stringToSign);
       return window.crypto.subtle.sign(subtleCryptoAlgorithm(alg), signingKey, buf);
     })
@@ -199,7 +208,6 @@ function generateSignature(event) {
       setAlert(e);
     });
 }
-
 
 let ParseState = {
       BEGIN : 0,
@@ -306,7 +314,7 @@ function verifySignature(event) {
     if (sigHeader.algorithm == 'rsa-sha256') {
       let keydata = pem2bin(getPublicKey());
       let sigBytes = Buffer.from(sigHeader.signature, 'base64');
-      let stringToSign = "";
+      let stringToSign = getStringToSign(getHeaders(), sigHeader.headers);
       const data = new TextEncoder().encode(stringToSign);
       let p = window.crypto.subtle.importKey("spki", keydata, {name:"RSASSA-PKCS1-v1_5", hash: "SHA-256"}, false, ['verify'])
         .then(publicKey =>
@@ -316,11 +324,7 @@ function verifySignature(event) {
                 sigBytes, //ArrayBuffer of the signature
                 data //ArrayBuffer of the data
               ))
-        .then(function(isvalid){
-          //returns a boolean on whether the signature is true or not
-          setAlert('isvalid: ' + isvalid);
-          console.log(isvalid);
-        });
+        .then( isvalid => setAlert(isvalid? 'The signature is valid.' : 'The signature is not valid', isvalid?'success':'warning') );
     }
     else if (sigHeader.algorithm == 'hmac-sha256') {
     }
