@@ -79,17 +79,19 @@ textarea {
   border-width: 0;
   > button {
     margin-top: 14px;
-    width:92px;
+    width:118px;
+  }
+  > select {
+    width:118px;
   }
   > select:not(:first-child) {
     margin-top: 14px;
-    width:92px;
   }
 }
 
 .panel-right {
-  min-width: 452px;
-  margin-left: 630px;
+  min-width: 426px;
+  margin-left: 656px;
 }
 
 div.CodeMirror {
@@ -110,14 +112,14 @@ pre.CodeMirror-line > span {
   /* white-space: normal; */
 }
 
-.rawvalue {
+.plaintextvalue {
   max-width: 1024px;
   border: 1px solid #ccc;
   border-radius: 4px;
   padding: 4px;
   margin: 0 0 8px 0;
   font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
-  font-size: 2rem;
+  font-size: 0.8rem;
 
   /* all below, to handle really long JWTs */
   white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
@@ -130,27 +132,9 @@ pre.CodeMirror-line > span {
   white-space: normal;
 }
 
-.cm-jwt-header {
-  color: #fa003a;
-}
-.cm-jwt-payload {
-  color: #b100ff;
-}
-.cm-jwt-iv {
-  color: #FF948A;
-}
-.cm-jwt-key {
-  color: #89BB86;
-}
-.cm-jwt-signature, .cm-jwt-authtag {
-  color: #3184fb;
-}
-
-#privatekey, #publickey {
-  > .CodeMirror {
-    font-size: 84%;
+#ta_privatekey, #ta_publickey {
+    font-size: 0.7rem;
     max-height: 232px;
-  }
 }
 
 #privatekey  .CodeMirror-scroll {
