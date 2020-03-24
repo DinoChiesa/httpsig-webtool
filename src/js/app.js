@@ -117,7 +117,7 @@ function copyToClipboard(event) {
       // CodeMirror obscures the original textarea, and appends a div as the next sibling.
       // We want to flash THAT.
       let $cmdiv = $source.next();
-      if ($cmdiv.prop('tagName').toLowerCase() == 'div' && $cmdiv.hasClass('CodeMirror')) {
+      if ($cmdiv.length>0 && $cmdiv.prop('tagName').toLowerCase() == 'div' && $cmdiv.hasClass('CodeMirror')) {
         $cmdiv.addClass('copy-to-clipboard-flash-bg')
           .delay('1000')
           .queue( _ => $cmdiv.removeClass('copy-to-clipboard-flash-bg').dequeue() );
@@ -510,6 +510,9 @@ $(document).ready(function() {
 
   $('#symmetrickey').hide();
   $('#pbkdf2_params').hide();
+
+  var text = reformIndents($('#ta_headerlist').val());
+  $('#ta_headerlist').val(text);
 
   newKeyPair();
 
