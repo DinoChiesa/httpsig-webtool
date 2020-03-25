@@ -30,44 +30,13 @@ textarea {
   }
 }
 
-#panel_encoded > p > .length,
-#header > p > .length,
-#payload > p > .length,
 #symmetrickey > p > .length {
   font-size: 60%;
 }
 
-#symmetrickey {
-  > input {
-    width: 100%;
-    padding-left: 6px;
-    font-family: monospace;
-  }
-  > div {
-    margin-left: 32px;
-    span {
-      color: #BDBDBD;
-      font-size: 80%;
-      width: 140px;
-      display: inline-block;
-    }
-    input {
-      margin-left: 8px;
-      padding-left: 6px;
-      width: 440px;
-      font-family: monospace;
-    }
-    select {
-      margin-left:8px;
-      width:180px;
-      display: inline-block;
-    }
-  }
-}
-
 .panel-left {
   float: left;
-  width: 520px;
+  width: 580px;
   min-height: 720px;
   margin: 2px 0;
 }
@@ -79,10 +48,10 @@ textarea {
   border-width: 0;
   > button {
     margin-top: 14px;
-    width:118px;
+    width: 118px;
   }
   > select {
-    width:118px;
+    width: 118px;
   }
   > select:not(:first-child) {
     margin-top: 14px;
@@ -91,25 +60,7 @@ textarea {
 
 .panel-right {
   min-width: 426px;
-  margin-left: 656px;
-}
-
-div.CodeMirror {
-  border: 1px dotted #ccc;
-  height: auto;
-}
-
-
-pre.CodeMirror-line > span {
-  /* all below, to handle really long JWTs */
-  white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
-  white-space: -pre-wrap;      /* Opera 4-6 */
-  white-space: -o-pre-wrap;    /* Opera 7 */
-  white-space: pre-wrap;       /* css-3 */
-  word-wrap: break-word;       /* Internet Explorer 5.5+ */
-  white-space: -webkit-pre-wrap; /* Newer versions of Chrome/Safari*/
-  word-break: break-all;
-  /* white-space: normal; */
+  margin-left: 716px;
 }
 
 .plaintextvalue {
@@ -132,21 +83,38 @@ pre.CodeMirror-line > span {
   white-space: normal;
 }
 
+
+#symmetrickey {
+  > input {
+    width: 100%;
+    padding-left: 6px;
+    font-family: monospace;
+  }
+  > div {
+    margin-left: 32px;
+    span {
+      color: #BDBDBD;
+      font-size: 80%;
+      width: 140px;
+      display: inline-block;
+    }
+    input {
+      margin-left: 8px;
+      padding-left: 6px;
+      width: 440px;
+      font-family: monospace;
+    }
+    select {
+      margin-left: 8px;
+      width: 180px;
+      display: inline-block;
+    }
+  }
+}
+
 #ta_privatekey, #ta_publickey {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     max-height: 232px;
-}
-
-#privatekey  .CodeMirror-scroll {
-  max-height: 162px;
-}
-
-#publickey  .CodeMirror-scroll {
-  max-height: 216px;
-}
-
-#panel_decoded > div {
-  margin-bottom: 18px;
 }
 
 .banner > .alert {
@@ -186,9 +154,11 @@ pre.CodeMirror-line > span {
   margin-right: -50%;
   transform: translate(-50%, -50%)
 }
+
 .banner > h2, .footer > h2 {
   top: 46px;
 }
+
 .banner > div {
   top: 96px;
 }
@@ -227,23 +197,6 @@ pre.CodeMirror-line > span {
 .outdated {
   background-color: #DCDCDC;
 }
-
-/*
-span.cm-jwt-header + div,
-span.cm-jwt-payload + div,
-span.cm-jwt-signature + div {
-  position: absolute;
-  z-index: 99;
-  display:inline-block;
-  top: 2px;
-  left: 10px;
-  background: #C9D7E5;
-  border: 1px dotted #0c0c0c;
-  font-family: Roboto, sans-serif;
-  font-size: 12pt;
-  padding:0 6px;
-}
-*/
 
 #symmetrickey input[disabled] {
     color: #636C77;
