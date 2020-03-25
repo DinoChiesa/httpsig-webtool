@@ -200,7 +200,7 @@ function generateSignature(event) {
     .then( signature => {
       $('#ta_signature').val(signature);
       let headerList = Object.keys(headers).join(' ');
-      let hdr = `Signature: keyId="test",algorithm="${alg}",headers="${headerList}",signature="${signature}"`;
+      let hdr = `Signature keyId="test", algorithm="${alg}", headers="${headerList}", signature="${signature}"`;
       $('#ta_httpsigheader').val(hdr);
     })
     .catch( e => {
@@ -209,23 +209,25 @@ function generateSignature(event) {
     });
 }
 
-let ParseState = {
+
+const ParseState = {
       BEGIN : 0,
       NAME : 1,
       VALUE : 2,
       COMMA : 3,
-      QUOTE : 4
+      QUOTE : 4,
+      INTEGER : 5
     };
 
 function parseHttpSigHeader(str) {
   str = str.trim();
-  let re1 = new RegExp('^Signature *: *(.+)$');
-  var m = re1.exec(str);
+  const re1 = new RegExp('^Signature +(.+)$');
+  let m = re1.exec(str);
   if ( ! m || !m[1]) {
     throw new Error("malformed Signature header?");
   }
   const checkNameChar = function(c) {
-      var code = c.charCodeAt(0);
+          var code = c.charCodeAt(0);
           if ((code >= 0x41 && code <= 0x5a) || // A-Z
               (code >= 0x61 && code <= 0x7a)) { // a-z
           }
@@ -234,6 +236,14 @@ function parseHttpSigHeader(str) {
           }
           else {
             throw new Error('invalid parameter name');
+          }
+        };
+  const checkIntegerChar = function(c) {
+          var code = c.charCodeAt(0);
+          if (code >= 0x30 && code <= 0x39) { // 0-9
+          }
+          else {
+            throw new Error('invalid integer value');
           }
         };
   let content = m[1].trim();
@@ -248,11 +258,34 @@ function parseHttpSigHeader(str) {
 
     case ParseState.NAME:
       if (c === '=') {
-        state = ParseState.QUOTE;
+        if (parsed[name])
+          throw new Error('duplicate auth-param at position ' + i);
+        state = (name=='created' || name=='expires') ? ParseState.INTEGER : ParseState.QUOTE;
+      }
+      else if (c === ' ') {
+        /* skip OWS between auth-params */
+        if (name != '')
+          throw new Error(`whitespace in name at position ${i}`);
       }
       else {
         checkNameChar(c);
         name += c;
+      }
+      break;
+
+    case ParseState.INTEGER:
+      if (c === ',') {
+        // this must be a seconds-since-epoch  eg, 1402170695
+        if (value.length != 10)
+          throw new Error(`bad value (${value}) at posn ${i}`);
+        state = ParseState.NAME;
+        parsed[name] = value;
+        name = '';
+        value = '';
+      }
+      else {
+        checkIntegerChar(c);
+        value += c;
       }
       break;
 
@@ -279,6 +312,7 @@ function parseHttpSigHeader(str) {
     case ParseState.COMMA:
       if (c === ',') {
         name = '';
+        value = '';
         state = ParseState.NAME;
       } else {
         throw new Error('bad param format');
@@ -292,14 +326,16 @@ function parseHttpSigHeader(str) {
     i++;
   } while (i < content.length);
 
+  let requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
   requiredKeys.forEach(key => {
     if ( ! parsed[key])
       throw new Error('missing ' + key);
   });
 
+  let validKeys = requiredKeys.concat(['created','expires']);
   Object.keys(parsed).forEach(key => {
-    if ( ! requiredKeys.includes(key))
-      throw new Error('unrecognized parameter: ' + key);
+    if ( ! validKeys.includes(key))
+      throw new Error('unsupported parameter: ' + key);
   });
 
   if ((parsed.algorithm != 'rsa-sha256') && (parsed.algorithm != 'hmac-sha256'))
@@ -307,6 +343,7 @@ function parseHttpSigHeader(str) {
 
   return parsed;
 }
+
 
 function verifySignature(event) {
   try {
