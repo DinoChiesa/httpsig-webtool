@@ -6,8 +6,6 @@ import NodeRSA from "node-rsa";
 import SignatureParser from "./SignatureParser.js";
 
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
-const algorithms = ['hmac-sha256', 'rsa-sha256', 'hs2019'];
-
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
 
@@ -186,12 +184,38 @@ function copyToClipboard(event) {
   return success;
 }
 
-function getStringToSign(headers, ordering) {
-  let list = (ordering) ? ordering.split(' ') : Object.keys(headers);
-  return list
-        .map(hdrName => hdrName.toLowerCase() + ': ' + headers[hdrName])
-        .join('\n');
+function getHeaderList(headers, times) {
+  let list = Object.keys(headers);
+  if (times.created) {
+    list.push("created");
+  }
+  if (times.expires) {
+    list.push("expires");
+  }
+  return list.join(' ');
 }
+
+function getStringToSign(headers, times, ordering) {
+  let list = null;
+  if (ordering) {
+    list =  ordering.split(' ')
+      .map(hdrName => {
+        if (hdrName == 'created') return '(created): ' + times.created;
+        if (hdrName == 'expires') return '(expires): ' + times.expires;
+        return hdrName.toLowerCase() + ': ' + headers[hdrName];
+      });
+  }
+  else {
+    list = Object.keys(headers)
+      .map(hdrName => hdrName.toLowerCase() + ': ' + headers[hdrName]);
+    if (times.created) list.push('(created): ' + times.created);
+    if (times.expires) list.push('(expires): ' + times.expires);
+  }
+
+  return list.join('\n');
+}
+
+
 
 function getHeaders() {
   let text = $('#ta_headerlist').val(),
@@ -212,6 +236,28 @@ function getHeaders() {
   return headers;
 }
 
+function getCreatedAndExpiryTimesForGeneration(selectedAlg) {
+  let ret = {};
+  if (selectedAlg.startsWith('hs2019')) {
+    let now = Math.floor((new Date()).valueOf() / 1000),
+        wantCreated = $('#chk-created').prop('checked'),
+        desiredExpiry = $('.sel-expiry').find(':selected').text().toLowerCase();
+
+    if (wantCreated) {
+      ret.created = now;
+    }
+
+    if (desiredExpiry != 'no expiry') {
+      let matches = (new RegExp('^([1-9][0-9]*)mins$')).exec(desiredExpiry);
+      if (matches && matches.length == 2) {
+        ret.expires = now + parseInt(matches[1], 10) * 60;
+      }
+    }
+  }
+  return ret;
+}
+
+
 function generateSignature(event) {
   let headers = getHeaders(),
       algSelection = $('.sel-alg').find(':selected').text(),
@@ -221,34 +267,47 @@ function generateSignature(event) {
   }
   else if (algSelection == 'rsa-sha256') {
     let keydata = pem2bin(getPrivateKey());
-    p = window.crypto.subtle.importKey("pkcs8", keydata, {name:"RSASSA-PKCS1-v1_5", hash: "SHA-256"}, false, ['sign']);
+    p = window.crypto.subtle.importKey('pkcs8', keydata, {name:'RSASSA-PKCS1-v1_5', hash: 'SHA-256'}, false, ['sign']);
   }
   else if (algSelection == 'hs2019 (rsa)') {
     let keydata = pem2bin(getPrivateKey());
-    p = window.crypto.subtle.importKey("pkcs8", keydata, {name:"RSA-PSS", hash: "SHA-512"}, false, ['sign']);
+    p = window.crypto.subtle.importKey('pkcs8', keydata, {name:'RSA-PSS', hash: 'SHA-512'}, false, ['sign']);
   }
   else {
     throw new Error('unsupported algorithm');
   }
 
-  p = p
+  let times = getCreatedAndExpiryTimesForGeneration(algSelection);
+
+  return p
     .then( signingKey => {
-      const stringToSign = getStringToSign(headers);
+      const stringToSign = getStringToSign(headers, times);
       const buf = new TextEncoder().encode(stringToSign);
       return window.crypto.subtle.sign(subtleCryptoAlgorithm(algSelection), signingKey, buf);
     })
     .then(signatureData => {
       return window.btoa(String.fromCharCode(...new Uint8Array(signatureData)));
-    });
-
-  return p
+    })
     .then( signature => {
       $('#ta_signature').val(signature);
-      let headerList = Object.keys(headers).join(' '),
+      let headerList = getHeaderList(headers, times),
           algForHeader = algSelectionToAlg(algSelection),
-          flavor = algFlavor(algSelection);
-      let hdr = `Signature keyId="${flavor}-test", algorithm="${algForHeader}", headers="${headerList}", signature="${signature}"`;
-      $('#ta_httpsigheader').val(hdr);
+          flavor = algFlavor(algSelection),
+          items = [
+            `keyId="${flavor}-test"`,
+            `algorithm="${algForHeader}"`,
+            `headers="${headerList}"`
+          ];
+
+      if (headerList.indexOf('created') >= 0) {
+        items.push(`created=${times.created}`);
+      }
+      if (headerList.indexOf('expires') >= 0) {
+        items.push(`expires=${times.expires}`);
+      }
+      items.push(`signature="${signature}"`);
+
+      $('#ta_httpsigheader').val('Signature ' + items.join(', '));
     })
     .catch( e => {
       console.log(e.stack);
@@ -261,11 +320,12 @@ function verifySignature(event) {
   try {
     const sigHeader = SignatureParser.parse($('#ta_httpsigheader').val()),
           sigBytes = Buffer.from(sigHeader.signature, 'base64'),
-          stringToSign = getStringToSign(getHeaders(), sigHeader.headers),
-          data = new TextEncoder().encode(stringToSign);
-    let selectedAlg = $('.sel-alg').find(':selected').text(),
-        flavor = algFlavor(selectedAlg),
-        p = null;
+          times = {created: sigHeader.created, expires: sigHeader.expires},
+          stringToSign = getStringToSign(getHeaders(), times, sigHeader.headers),
+          data = new TextEncoder().encode(stringToSign),
+          selectedAlg = $('.sel-alg').find(':selected').text(),
+          flavor = algFlavor(selectedAlg);
+    let p = null;
     if (sigHeader.algorithm == 'rsa-sha256') {
       let keydata = pem2bin(getPublicKey());
       p = window
@@ -305,23 +365,50 @@ function verifySignature(event) {
                 sigBytes,
                 data
               ));
-      }
-      else {
-        throw new Error('unknown algorithm');
-      }
+    }
+    else {
+      throw new Error('unknown algorithm');
+    }
 
-    p.then( isvalid =>
-            (isvalid) ?
-            setAlert('The signature is valid.', 'success') :
-            setAlert('The signature is not valid', 'warning'));
+    // check created and expires IFF hs2019
+    if (sigHeader.algorithm == 'hs2019') {
+      p.then(isvalid => {
+        if (isvalid) {
+          let now = Math.floor((new Date()).valueOf() / 1000);
+          let reasons = [];
+          if (sigHeader.created) {
+            if (sigHeader.created > now)
+              reasons.push('the created time is in the future');
+          }
+          if (sigHeader.expires) {
+            if (sigHeader.expires < now)
+              reasons.push('the expired time is in the past');
+          }
+
+          if (reasons.length == 0) {
+            setAlert('The signature is valid.', 'success') ;
+          }
+          else {
+            setAlert('The signature is valid, but ' + reasons.join('; '), 'warning') ;
+          }
+        }
+        else {
+          setAlert('The signature is not valid', 'warning');
+        }
+      });
+    }
+    else {
+      p.then( isvalid =>
+              (isvalid) ?
+              setAlert('The signature is valid.', 'success') :
+              setAlert('The signature is not valid', 'warning'));
+    }
   }
   catch (exc1) {
     setAlert('error processing HTTP Signature header: ' + exc1.message);
     return;
   }
 }
-
-
 
 function setAlert(html, alertClass) {
   let buttonHtml = '<button type="button" class="close" data-dismiss="alert" aria-label="Close">\n' +
@@ -386,10 +473,10 @@ function getGenKeyParams(alg) {
     hash: {name: "SHA-256"}
   };
   if (alg == 'hs2019 (rsa)') return {
-    name: "RSA-PSS", //??
+    name: "RSA-PSS", // not sure if this is required
     modulusLength: 2048, //can be 1024, 2048, or 4096
     publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-    hash: {name: "SHA-512"} // unsure if important
+    hash: {name: "SHA-512"} // I believe this is important
   };
   throw new Error('invalid key flavor');
 }
@@ -459,24 +546,31 @@ function algFlavor(algString) {
 
 function onChangeAlg(event) {
   let $this = $(this),
-      newSelection = algFlavor($this.find(':selected').text()),
-      previousSelection = $this.data('previous-flavor');
+      selectedAlg = $this.find(':selected').text(),
+      newFlavor = algFlavor(selectedAlg),
+      previousFlavor = $this.data('previous-flavor');
 
-  if (newSelection != previousSelection) {
-    if (newSelection == 'hmac') {
+  if (newFlavor != previousFlavor) {
+    if (newFlavor == 'hmac') {
       $('.btn-newkeypair').hide();
       $('#privatekey').hide();
       $('#publickey').hide();
       $('#symmetrickey').show();
     }
-    else if (newSelection == 'rsa') {
+    else if (newFlavor == 'rsa') {
       $('.btn-newkeypair').show();
       $('#privatekey').show();
       $('#publickey').show();
       $('#symmetrickey').hide();
     }
   }
-  $this.data('previous-flavor', newSelection);
+  if (selectedAlg.startsWith('hs2019')) {
+    $('#hs2019-settings').show();
+  }
+  else {
+    $('#hs2019-settings').hide();
+  }
+  $this.data('previous-flavor', newFlavor);
 }
 
 
@@ -498,6 +592,7 @@ $(document).ready(function() {
 
   $('#symmetrickey').hide();
   $('#pbkdf2_params').hide();
+  $('#hs2019-settings').hide();
 
   var text = reformIndents($('#ta_headerlist').val());
   $('#ta_headerlist').val(text);
