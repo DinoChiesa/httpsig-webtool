@@ -34,11 +34,6 @@ function handlePaste(e) {
   }, 100);
 }
 
-function algToKeyBits(alg) {
-  if(alg == 'hmac-sha256') return 256;
-  return 9999999;
-}
-
 function getPbkdf2IterationCount() {
   let icountvalue = $('#ta_pbkdf2_iterations').val(),
       icount = ITERATION_DEFAULT;
@@ -66,7 +61,7 @@ function getPbkdf2SaltBuffer() {
   throw new Error('unsupported salt encoding'); // will not happen
 }
 
-async function getSymmetricKeyBuffer(alg) {
+async function getSymmetricKeyBuffer() {
   let keyvalue = $('#ta_symmetrickey').val();
   let coding = $('.sel-symkey-coding').find(':selected').text().toLowerCase();
   let knownCodecs = ['utf-8', 'base64', 'hex'];
@@ -79,7 +74,7 @@ async function getSymmetricKeyBuffer(alg) {
     let kdfParams = {
           salt: getPbkdf2SaltBuffer(),
           iterations: getPbkdf2IterationCount(),
-          length: algToKeyBits(alg) / 8
+          length: 256 / 8
         };
     return jose.JWA.derive("PBKDF2-SHA-256", Buffer.from(keyvalue, 'utf-8'), kdfParams);
   }
@@ -138,8 +133,8 @@ function copyToClipboard(event) {
 }
 
 function checkKeyLength(alg, keybuffer) {
-  let length = keybuffer.byteLength;
-  let requiredLength = algToKeyBits(alg) / 8;
+  const length = keybuffer.byteLength,
+        requiredLength = 256 / 8;
   if (length >= requiredLength) return Promise.resolve(keybuffer);
   return Promise.reject(new Error('insufficient key length. You need at least ' + requiredLength + ' chars for ' + alg));
 }
@@ -153,17 +148,18 @@ function getStringToSign(headers, ordering) {
 
 function getHeaders() {
   let text = $('#ta_headerlist').val(),
-      re2 = new RegExp(':(.+)$'),
+      re2 = new RegExp('^(.+?):(.+)$'),
       onNewlines = new RegExp('(\r\n|\n)', 'g'),
       headers = {};
   text
     .split(onNewlines)
     .forEach(line => {
-      if (line.trim().length > 3){
-        let parts = line.split(re2).map(Function.prototype.call, String.prototype.trim);
-        console.log('parts: ' + JSON.stringify(parts));
-        let hname = parts[0].toLowerCase();
-        headers[hname] = parts[1];
+      if (line.trim().length > 3) {
+        let match = re2.exec(line);
+        if (match && match.length == 3) {
+          let hname = match[1].trim().toLowerCase();
+          headers[hname] = match[2].trim();
+        }
       }
     });
   return headers;
@@ -246,11 +242,12 @@ function parseHttpSigHeader(str) {
             throw new Error('invalid integer value');
           }
         };
-  let content = m[1].trim();
-  console.log(content);
-  let i = 0, state = ParseState.NAME;
-  let name = '', value = '';
-  let parsed = {};
+  let content = m[1].trim(),
+      state = ParseState.NAME,
+      name = '',
+      value = '',
+      parsed = {},
+      i = 0;
   do {
     var c = content.charAt(i);
     //console.log('state: ' + Number(state));
@@ -347,27 +344,48 @@ function parseHttpSigHeader(str) {
 
 function verifySignature(event) {
   try {
-    let sigHeader = parseHttpSigHeader($('#ta_httpsigheader').val());
+    const sigHeader = parseHttpSigHeader($('#ta_httpsigheader').val()),
+          sigBytes = Buffer.from(sigHeader.signature, 'base64'),
+          stringToSign = getStringToSign(getHeaders(), sigHeader.headers),
+          data = new TextEncoder().encode(stringToSign);
+    let p = null;
     if (sigHeader.algorithm == 'rsa-sha256') {
       let keydata = pem2bin(getPublicKey());
-      let sigBytes = Buffer.from(sigHeader.signature, 'base64');
-      let stringToSign = getStringToSign(getHeaders(), sigHeader.headers);
-      const data = new TextEncoder().encode(stringToSign);
-      let p = window.crypto.subtle.importKey("spki", keydata, {name:"RSASSA-PKCS1-v1_5", hash: "SHA-256"}, false, ['verify'])
+      p = window
+        .crypto
+        .subtle
+        .importKey("spki", keydata, {name:"RSASSA-PKCS1-v1_5", hash: "SHA-256"}, false, ['verify'])
         .then(publicKey =>
               window.crypto.subtle.verify(
-                { name: "RSASSA-PKCS1-v1_5" },
+                "RSASSA-PKCS1-v1_5",
                 publicKey, //from generateKey or importKey above
                 sigBytes, //ArrayBuffer of the signature
                 data //ArrayBuffer of the data
-              ))
-        .then( isvalid => setAlert(isvalid? 'The signature is valid.' : 'The signature is not valid', isvalid?'success':'warning') );
+              ));
     }
     else if (sigHeader.algorithm == 'hmac-sha256') {
+      p = getSymmetricKeyBuffer(sigHeader.algorithm)
+        .then( keyBuffer => checkKeyLength(sigHeader.algorithm, keyBuffer))
+        .then( keyBuffer =>
+               window
+               .crypto
+               .subtle
+               .importKey("raw", keyBuffer, {name:"HMAC", hash: "SHA-256"}, false, ['sign', 'verify']))
+        .then(symmetricKey =>
+              window.crypto.subtle.verify(
+                "HMAC",
+                symmetricKey, //from generateKey or importKey above
+                sigBytes, //ArrayBuffer of the signature
+                data //ArrayBuffer of the data
+              ));
     }
     else {
       throw new Error('unknown algorithm');
     }
+    p.then( isvalid =>
+            (isvalid) ?
+            setAlert('The signature is valid.', 'success') :
+            setAlert('The signature is not valid', 'warning'));
   }
   catch (exc1) {
     setAlert('Incomplete or malformed HTTP Signature header');
