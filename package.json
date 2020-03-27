@@ -1,6 +1,6 @@
 {
   "name": "httpsig-webtool",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "description": "",
   "main": "webpack.config.js",
   "scripts": {

@@ -3,11 +3,13 @@
 import 'bootstrap';
 import $ from "jquery";
 import NodeRSA from "node-rsa";
-const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
+import SignatureParser from "./SignatureParser.js";
 
-const ITERATION_DEFAULT = 8192,
-      ITERATION_MAX = 100001,
-      ITERATION_MIN = 50;
+const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
+const algorithms = ['hmac-sha256', 'rsa-sha256', 'hs2019'];
+
+
+const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
 
 function subtleCryptoAlgorithm(alg) {
   if (alg =='rsa-sha256') {
@@ -16,8 +18,25 @@ function subtleCryptoAlgorithm(alg) {
   if (alg =='hmac-sha256') {
     return "HMAC";
   }
+  if (alg =='hs2019 (hmac)') {
+    return "HMAC";
+  }
+  if (alg =='hs2019 (rsa)') {
+    // I could not find the required saltLength documented in the Http Sig specification,
+    // so I hard-code to the length of the output hash. This is what JWT specifies, and other
+    // systems commonly use this approach.
+    return { name: "RSA-PSS", saltLength: 512 / 8};
+  }
   return "null";
 }
+
+function algSelectionToAlg(alg) {
+  if ((alg =='hs2019 (hmac)') || (alg =='hs2019 (rsa)')) {
+    return "hs2019";
+  }
+  return alg;
+}
+
 function reformIndents(s) {
   let s2 = s.split(new RegExp('\n', 'g'))
     .map(s => s.trim())
@@ -35,15 +54,15 @@ function handlePaste(e) {
 
 function getPbkdf2IterationCount() {
   let icountvalue = $('#ta_pbkdf2_iterations').val(),
-      icount = ITERATION_DEFAULT;
+      icount = PBKDF_ITERATIONS.DEFAULT;
   try {
     icount = Number.parseInt(icountvalue, 10);
   }
   catch (exc1) {
     setAlert("not a number? defaulting to iteration count: "+ icount);
   }
-  if (icount > ITERATION_MAX || icount < ITERATION_MIN) {
-    icount = ITERATION_DEFAULT;
+  if (icount > PBKDF_ITERATIONS.MAX || icount < PBKDF_ITERATIONS.MIN) {
+    icount = PBKDF_ITERATIONS.DEFAULT;
     setAlert("iteration count out of range. defaulting to: "+ icount);
   }
   return icount;
@@ -60,6 +79,18 @@ function getPbkdf2SaltBuffer() {
   throw new Error('unsupported salt encoding'); // will not happen
 }
 
+function checkKeyLength(alg, keyBuffer) {
+  const length = keyBuffer.byteLength,
+        requiredLength = 256 / 8;
+  if (length >= requiredLength) return Promise.resolve(keyBuffer);
+  return Promise.reject(new Error('insufficient key length. You need at least ' + requiredLength + ' chars for ' + alg));
+}
+
+function getHashFromAlg(alg) {
+  if (alg.startsWith('hs2019')) return "SHA-512";
+  return "SHA-256"; // rsa-sha256 or hmac-sha256
+}
+
 function getSymmetricKey(alg) {
   const keyvalue = $('#ta_symmetrickey').val(),
         coding = $('.sel-symkey-coding').find(':selected').text().toLowerCase(),
@@ -68,7 +99,14 @@ function getSymmetricKey(alg) {
   if (knownCodecs.indexOf(coding)>=0) {
     return Promise.resolve(Buffer.from(keyvalue, coding))
       .then( keyBuffer => checkKeyLength(alg, keyBuffer))
-      .then( keyBuffer => window.crypto.subtle.importKey("raw", keyBuffer, {name:"HMAC", hash: "SHA-256"}, false, ['sign', 'verify']));
+      .then( keyBuffer => window
+             .crypto
+             .subtle
+             .importKey("raw",
+                        keyBuffer,
+                        {name:"HMAC", hash: getHashFromAlg(alg)},
+                        false,
+                        ['sign', 'verify']));
 
   }
 
@@ -90,7 +128,7 @@ function getSymmetricKey(alg) {
                           hash: 'SHA-256'
                         },
                         rawKey,
-                        { name: 'HMAC', hash: 'SHA-256'},
+                        { name: 'HMAC', hash: getHashFromAlg(alg)},
                         true,
                         [ "sign", "verify" ]));
   }
@@ -148,18 +186,6 @@ function copyToClipboard(event) {
   return success;
 }
 
-function checkKeyLength(alg, key) {
-  if (key && key.type == "secret") {
-    return Promise.resolve(key);
-  }
-
-  const keyBuffer = key,
-        length = keyBuffer.byteLength,
-        requiredLength = 256 / 8;
-  if (length >= requiredLength) return Promise.resolve(keyBuffer);
-  return Promise.reject(new Error('insufficient key length. You need at least ' + requiredLength + ' chars for ' + alg));
-}
-
 function getStringToSign(headers, ordering) {
   let list = (ordering) ? ordering.split(' ') : Object.keys(headers);
   return list
@@ -188,14 +214,18 @@ function getHeaders() {
 
 function generateSignature(event) {
   let headers = getHeaders(),
-      alg = $('.sel-alg').find(':selected').text(),
+      algSelection = $('.sel-alg').find(':selected').text(),
       p = null;
-  if (alg == 'hmac-sha256') {
-    p = getSymmetricKey(alg);
+  if ((algSelection == 'hmac-sha256') || (algSelection == 'hs2019 (hmac)')) {
+    p = getSymmetricKey(algSelection);
   }
-  else if (alg == 'rsa-sha256') {
+  else if (algSelection == 'rsa-sha256') {
     let keydata = pem2bin(getPrivateKey());
     p = window.crypto.subtle.importKey("pkcs8", keydata, {name:"RSASSA-PKCS1-v1_5", hash: "SHA-256"}, false, ['sign']);
+  }
+  else if (algSelection == 'hs2019 (rsa)') {
+    let keydata = pem2bin(getPrivateKey());
+    p = window.crypto.subtle.importKey("pkcs8", keydata, {name:"RSA-PSS", hash: "SHA-512"}, false, ['sign']);
   }
   else {
     throw new Error('unsupported algorithm');
@@ -205,7 +235,7 @@ function generateSignature(event) {
     .then( signingKey => {
       const stringToSign = getStringToSign(headers);
       const buf = new TextEncoder().encode(stringToSign);
-      return window.crypto.subtle.sign(subtleCryptoAlgorithm(alg), signingKey, buf);
+      return window.crypto.subtle.sign(subtleCryptoAlgorithm(algSelection), signingKey, buf);
     })
     .then(signatureData => {
       return window.btoa(String.fromCharCode(...new Uint8Array(signatureData)));
@@ -214,8 +244,10 @@ function generateSignature(event) {
   return p
     .then( signature => {
       $('#ta_signature').val(signature);
-      let headerList = Object.keys(headers).join(' ');
-      let hdr = `Signature keyId="test", algorithm="${alg}", headers="${headerList}", signature="${signature}"`;
+      let headerList = Object.keys(headers).join(' '),
+          algForHeader = algSelectionToAlg(algSelection),
+          flavor = algFlavor(algSelection);
+      let hdr = `Signature keyId="${flavor}-test", algorithm="${algForHeader}", headers="${headerList}", signature="${signature}"`;
       $('#ta_httpsigheader').val(hdr);
     })
     .catch( e => {
@@ -225,149 +257,15 @@ function generateSignature(event) {
 }
 
 
-const ParseState = {
-      BEGIN : 0,
-      NAME : 1,
-      VALUE : 2,
-      COMMA : 3,
-      QUOTE : 4,
-      INTEGER : 5
-    };
-
-function parseHttpSigHeader(str) {
-  str = str.trim();
-  const re1 = new RegExp('^Signature +(.+)$');
-  let m = re1.exec(str);
-  if ( ! m || !m[1]) {
-    throw new Error("malformed Signature header?");
-  }
-  const checkNameChar = function(c) {
-          var code = c.charCodeAt(0);
-          if ((code >= 0x41 && code <= 0x5a) || // A-Z
-              (code >= 0x61 && code <= 0x7a)) { // a-z
-          }
-          else if (code == 0x20) {
-            throw new Error('invalid whitespace before parameter name');
-          }
-          else {
-            throw new Error('invalid parameter name');
-          }
-        };
-  const checkIntegerChar = function(c) {
-          var code = c.charCodeAt(0);
-          if (code >= 0x30 && code <= 0x39) { // 0-9
-          }
-          else {
-            throw new Error('invalid integer value');
-          }
-        };
-  let content = m[1].trim(),
-      state = ParseState.NAME,
-      name = '',
-      value = '',
-      parsed = {},
-      i = 0;
-  do {
-    var c = content.charAt(i);
-    //console.log('state: ' + Number(state));
-    switch (Number(state)) {
-
-    case ParseState.NAME:
-      if (c === '=') {
-        if (parsed[name])
-          throw new Error('duplicate auth-param at position ' + i);
-        state = (name=='created' || name=='expires') ? ParseState.INTEGER : ParseState.QUOTE;
-      }
-      else if (c === ' ') {
-        /* skip OWS between auth-params */
-        if (name != '')
-          throw new Error(`whitespace in name at position ${i}`);
-      }
-      else {
-        checkNameChar(c);
-        name += c;
-      }
-      break;
-
-    case ParseState.INTEGER:
-      if (c === ',') {
-        // this must be a seconds-since-epoch  eg, 1402170695
-        if (value.length != 10)
-          throw new Error(`bad value (${value}) at posn ${i}`);
-        state = ParseState.NAME;
-        parsed[name] = value;
-        name = '';
-        value = '';
-      }
-      else {
-        checkIntegerChar(c);
-        value += c;
-      }
-      break;
-
-    case ParseState.QUOTE:
-      if (c === '"') {
-        value = '';
-        state = ParseState.VALUE;
-      } else {
-        throw new Error('expecting quote at position ' + i);
-      }
-      break;
-
-    case ParseState.VALUE:
-      if (name.length == 0)
-        throw new Error('bad param name at posn ' + i);
-      if (c === '"') {
-        parsed[name] = value;
-        state = ParseState.COMMA;
-      } else {
-        value += c;
-      }
-      break;
-
-    case ParseState.COMMA:
-      if (c === ',') {
-        name = '';
-        value = '';
-        state = ParseState.NAME;
-      } else {
-        throw new Error('bad param format');
-      }
-      break;
-
-    default:
-      throw new Error('Invalid format at posn ' + i);
-    }
-
-    i++;
-  } while (i < content.length);
-
-  let requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
-  requiredKeys.forEach(key => {
-    if ( ! parsed[key])
-      throw new Error('missing ' + key);
-  });
-
-  let validKeys = requiredKeys.concat(['created','expires']);
-  Object.keys(parsed).forEach(key => {
-    if ( ! validKeys.includes(key))
-      throw new Error('unsupported parameter: ' + key);
-  });
-
-  if ((parsed.algorithm != 'rsa-sha256') && (parsed.algorithm != 'hmac-sha256'))
-    throw new Error('bad algorithm');
-
-  return parsed;
-}
-
-
 function verifySignature(event) {
   try {
-    const sigHeader = parseHttpSigHeader($('#ta_httpsigheader').val()),
+    const sigHeader = SignatureParser.parse($('#ta_httpsigheader').val()),
           sigBytes = Buffer.from(sigHeader.signature, 'base64'),
           stringToSign = getStringToSign(getHeaders(), sigHeader.headers),
           data = new TextEncoder().encode(stringToSign);
-    let p = null;
+    let selectedAlg = $('.sel-alg').find(':selected').text(),
+        flavor = algFlavor(selectedAlg),
+        p = null;
     if (sigHeader.algorithm == 'rsa-sha256') {
       let keydata = pem2bin(getPublicKey());
       p = window
@@ -376,13 +274,14 @@ function verifySignature(event) {
         .importKey("spki", keydata, {name:"RSASSA-PKCS1-v1_5", hash: "SHA-256"}, false, ['verify'])
         .then(publicKey =>
               window.crypto.subtle.verify(
-                "RSASSA-PKCS1-v1_5",
+                subtleCryptoAlgorithm(sigHeader.algorithm),
                 publicKey,
                 sigBytes,
                 data
               ));
     }
-    else if (sigHeader.algorithm == 'hmac-sha256') {
+    else if ( (sigHeader.algorithm == 'hmac-sha256') ||
+              ((sigHeader.algorithm == 'hs2019') && (flavor == 'hmac') )) {
       p = getSymmetricKey(sigHeader.algorithm)
         .then(symmetricKey =>
               window.crypto.subtle.verify(
@@ -392,16 +291,32 @@ function verifySignature(event) {
                 data
               ));
     }
-    else {
-      throw new Error('unknown algorithm');
-    }
+    else if ((sigHeader.algorithm == 'hs2019') && (flavor == 'rsa')) {
+      // Infer the type of crypto based on the SELECTED alg in the dropdown
+      let keydata = pem2bin(getPublicKey());
+      p = window
+        .crypto
+        .subtle
+        .importKey("spki", keydata, {name:"RSA-PSS", hash: "SHA-512"}, false, ['verify'])
+        .then(publicKey =>
+              window.crypto.subtle.verify(
+                subtleCryptoAlgorithm('hs2019 (rsa)'),
+                publicKey,
+                sigBytes,
+                data
+              ));
+      }
+      else {
+        throw new Error('unknown algorithm');
+      }
+
     p.then( isvalid =>
             (isvalid) ?
             setAlert('The signature is valid.', 'success') :
             setAlert('The signature is not valid', 'warning'));
   }
   catch (exc1) {
-    setAlert('Incomplete or malformed HTTP Signature header');
+    setAlert('error processing HTTP Signature header: ' + exc1.message);
     return;
   }
 }
@@ -464,21 +379,28 @@ function pkcs8pem2Binary(pem) { // pkcs8 only
 }
 
 function getGenKeyParams(alg) {
-  if (alg.startsWith('rsa')) return {
+  if (alg == 'rsa-sha256') return {
     name: "RSASSA-PKCS1-v1_5", // this name also works for RSA-PSS !
     modulusLength: 2048, //can be 1024, 2048, or 4096
     publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
     hash: {name: "SHA-256"}
   };
+  if (alg == 'hs2019 (rsa)') return {
+    name: "RSA-PSS", //??
+    modulusLength: 2048, //can be 1024, 2048, or 4096
+    publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+    hash: {name: "SHA-512"} // unsure if important
+  };
   throw new Error('invalid key flavor');
 }
 
 function newKeyPair(event) {
-  let alg = $('.sel-alg').find(':selected').text();
-  if (alg.startsWith('rsa')) {
+  let selectedAlg = $('.sel-alg').find(':selected').text(),
+      flavor = algFlavor(selectedAlg);
+  if (flavor == 'rsa') {
     let keyUse = ["sign", "verify"], // irrelevant for our purposes (PEM Export)
         isExtractable = true,
-        genKeyParams = getGenKeyParams(alg);
+        genKeyParams = getGenKeyParams(selectedAlg);
     return window.crypto.subtle.generateKey(genKeyParams, isExtractable, keyUse)
       .then(key => window.crypto.subtle.exportKey( "spki", key.publicKey )
             .then(keydata => updateKeyValue('public', key2pem('PUBLIC', keydata)) )
@@ -490,34 +412,33 @@ function newKeyPair(event) {
   }
 }
 
-function selectAlgorithm(algName) {
-  let currentlySelectedAlg = $('.sel-alg').find(':selected').text().toLowerCase();
-  if (algName.toLowerCase() != currentlySelectedAlg) {
-    let $option = $('.sel-alg option[value="'+ algName +'"]');
-    if ( ! $option.length) {
-      $option = $('.sel-alg option[value="??"]');
-    }
-    $option
-      .prop('selected', true)
-      .trigger("change");
-  }
-}
+// function selectAlgorithm(algName) {
+//   let currentlySelectedAlg = $('.sel-alg').find(':selected').text().toLowerCase();
+//   if (algName.toLowerCase() != currentlySelectedAlg) {
+//     let $option = $('.sel-alg option[value="'+ algName +'"]');
+//     if ( ! $option.length) {
+//       $option = $('.sel-alg option[value="??"]');
+//     }
+//     $option
+//       .prop('selected', true)
+//       .trigger("change");
+//   }
+// }
 
-
-function keysAreCompatible(alg1, alg2) {
-  let prefix1 = alg1.substring(0, 2),
-      prefix2 = alg2.substring(0, 2);
-  if (['RS', 'PS'].indexOf(prefix1)>=0 &&
-      ['RS', 'PS'].indexOf(prefix2)>=0 ) return true;
-  if (prefix1 == 'ES') return alg1 == alg2;
-  return false;
-}
+// function keysAreCompatible(alg1, alg2) {
+//   let prefix1 = alg1.substring(0, 2),
+//       prefix2 = alg2.substring(0, 2);
+//   if (['RS', 'PS'].indexOf(prefix1)>=0 &&
+//       ['RS', 'PS'].indexOf(prefix2)>=0 ) return true;
+//   if (prefix1 == 'ES') return alg1 == alg2;
+//   return false;
+// }
 
 
 function changeSymmetricKeyCoding(event) {
   let $this = $(this),
       newSelection = $this.find(':selected').text().toLowerCase(),
-      previousSelection = $this.data('prev');
+      previousSelection = $this.data('previous-coding');
   if (newSelection != previousSelection) {
     if (newSelection == 'pbkdf2') {
       // display the salt and iteration count
@@ -527,40 +448,35 @@ function changeSymmetricKeyCoding(event) {
       $('#pbkdf2_params').hide();
     }
   }
-  $this.data('prev', newSelection);
+  $this.data('previous-coding', newSelection);
 }
 
+function algFlavor(algString) {
+  if (algString.indexOf('hmac') >= 0) return 'hmac';
+  if (algString.indexOf('rsa') >= 0) return 'rsa';
+  return 'unknown';
+}
 
 function onChangeAlg(event) {
   let $this = $(this),
-      newSelection = $this.find(':selected').text(),
-      previousSelection = $this.data('prev'),
-      headerObj = null;
+      newSelection = algFlavor($this.find(':selected').text()),
+      previousSelection = $this.data('previous-flavor');
 
   if (newSelection != previousSelection) {
-
-    if (newSelection == 'hmac-sha256') {
+    if (newSelection == 'hmac') {
       $('.btn-newkeypair').hide();
       $('#privatekey').hide();
       $('#publickey').hide();
       $('#symmetrickey').show();
     }
-    else if (newSelection == 'rsa-sha256') {
+    else if (newSelection == 'rsa') {
       $('.btn-newkeypair').show();
       $('#privatekey').show();
       $('#publickey').show();
       $('#symmetrickey').hide();
     }
-
-    if (headerObj){
-      // always base64
-      $('.sel-symkey-pbkdf2-salt-coding option[value="Base64"]')
-        .prop('selected', true)
-        .trigger("change");
-      // user can change these but it probably won't work
-    }
   }
-  $this.data('prev', newSelection);
+  $this.data('previous-flavor', newSelection);
 }
 
 
