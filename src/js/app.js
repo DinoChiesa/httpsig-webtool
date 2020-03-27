@@ -2,7 +2,6 @@
 
 import 'bootstrap';
 import $ from "jquery";
-import jose from "node-jose";
 import NodeRSA from "node-rsa";
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
 
@@ -61,22 +60,39 @@ function getPbkdf2SaltBuffer() {
   throw new Error('unsupported salt encoding'); // will not happen
 }
 
-async function getSymmetricKeyBuffer() {
-  let keyvalue = $('#ta_symmetrickey').val();
-  let coding = $('.sel-symkey-coding').find(':selected').text().toLowerCase();
-  let knownCodecs = ['utf-8', 'base64', 'hex'];
+function getSymmetricKey(alg) {
+  const keyvalue = $('#ta_symmetrickey').val(),
+        coding = $('.sel-symkey-coding').find(':selected').text().toLowerCase(),
+        knownCodecs = ['utf-8', 'base64', 'hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
-    return Promise.resolve(Buffer.from(keyvalue, coding));
+    return Promise.resolve(Buffer.from(keyvalue, coding))
+      .then( keyBuffer => checkKeyLength(alg, keyBuffer))
+      .then( keyBuffer => window.crypto.subtle.importKey("raw", keyBuffer, {name:"HMAC", hash: "SHA-256"}, false, ['sign', 'verify']));
+
   }
 
   if (coding == 'pbkdf2') {
-    let kdfParams = {
-          salt: getPbkdf2SaltBuffer(),
-          iterations: getPbkdf2IterationCount(),
-          length: 256 / 8
-        };
-    return jose.JWA.derive("PBKDF2-SHA-256", Buffer.from(keyvalue, 'utf-8'), kdfParams);
+    return window
+      .crypto
+      .subtle
+      .importKey('raw',
+                 Buffer.from(keyvalue, 'utf-8'),
+                 {name: 'PBKDF2'},
+                 false,
+                 ['deriveBits', 'deriveKey'] )
+      .then(rawKey => window
+            .crypto
+            .subtle
+            .deriveKey( { name: 'PBKDF2',
+                          salt: getPbkdf2SaltBuffer(),
+                          iterations: getPbkdf2IterationCount(),
+                          hash: 'SHA-256'
+                        },
+                        rawKey,
+                        { name: 'HMAC', hash: 'SHA-256'},
+                        true,
+                        [ "sign", "verify" ]));
   }
 
   throw new Error('unknown key encoding: ' + coding);  // will not happen
@@ -132,10 +148,15 @@ function copyToClipboard(event) {
   return success;
 }
 
-function checkKeyLength(alg, keybuffer) {
-  const length = keybuffer.byteLength,
+function checkKeyLength(alg, key) {
+  if (key && key.type == "secret") {
+    return Promise.resolve(key);
+  }
+
+  const keyBuffer = key,
+        length = keyBuffer.byteLength,
         requiredLength = 256 / 8;
-  if (length >= requiredLength) return Promise.resolve(keybuffer);
+  if (length >= requiredLength) return Promise.resolve(keyBuffer);
   return Promise.reject(new Error('insufficient key length. You need at least ' + requiredLength + ' chars for ' + alg));
 }
 
@@ -170,9 +191,7 @@ function generateSignature(event) {
       alg = $('.sel-alg').find(':selected').text(),
       p = null;
   if (alg == 'hmac-sha256') {
-    p = getSymmetricKeyBuffer(alg)
-      .then( keyBuffer => checkKeyLength(alg, keyBuffer))
-      .then( keyBuffer => window.crypto.subtle.importKey("raw", keyBuffer, {name:"HMAC", hash: "SHA-256"}, false, ['sign', 'verify']));
+    p = getSymmetricKey(alg);
   }
   else if (alg == 'rsa-sha256') {
     let keydata = pem2bin(getPrivateKey());
@@ -358,25 +377,19 @@ function verifySignature(event) {
         .then(publicKey =>
               window.crypto.subtle.verify(
                 "RSASSA-PKCS1-v1_5",
-                publicKey, //from generateKey or importKey above
-                sigBytes, //ArrayBuffer of the signature
-                data //ArrayBuffer of the data
+                publicKey,
+                sigBytes,
+                data
               ));
     }
     else if (sigHeader.algorithm == 'hmac-sha256') {
-      p = getSymmetricKeyBuffer(sigHeader.algorithm)
-        .then( keyBuffer => checkKeyLength(sigHeader.algorithm, keyBuffer))
-        .then( keyBuffer =>
-               window
-               .crypto
-               .subtle
-               .importKey("raw", keyBuffer, {name:"HMAC", hash: "SHA-256"}, false, ['sign', 'verify']))
+      p = getSymmetricKey(sigHeader.algorithm)
         .then(symmetricKey =>
               window.crypto.subtle.verify(
                 "HMAC",
-                symmetricKey, //from generateKey or importKey above
-                sigBytes, //ArrayBuffer of the signature
-                data //ArrayBuffer of the data
+                symmetricKey,
+                sigBytes,
+                data
               ));
     }
     else {
