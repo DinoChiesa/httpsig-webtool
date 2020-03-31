@@ -376,17 +376,23 @@ function verifySignature(event) {
         if (isvalid) {
           let now = Math.floor((new Date()).valueOf() / 1000);
           let reasons = [];
+          let notes = [];
           if (sigHeader.created) {
             if (sigHeader.created > now)
               reasons.push('the created time is in the future');
           }
           if (sigHeader.expires) {
+            let expiresString = (new Date(sigHeader.expires * 1000)).toISOString();
+            let nowString = (new Date()).toISOString();
             if (sigHeader.expires < now)
-              reasons.push('the expired time is in the past');
+              reasons.push('the expired time is in the past ('+ expiresString +' < '+ nowString+')');
+            notes.push('expires: ' + expiresString);
+            notes.push('now: ' + nowString);
           }
 
           if (reasons.length == 0) {
-            setAlert('The signature is valid.', 'success') ;
+            setAlert('The signature is valid. ' + notes.join('; '),
+                     'success') ;
           }
           else {
             setAlert('The signature is valid, but ' + reasons.join('; '), 'warning') ;
