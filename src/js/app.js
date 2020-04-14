@@ -5,6 +5,11 @@ import $ from "jquery";
 import NodeRSA from "node-rsa";
 import SignatureParser from "./SignatureParser.js";
 
+import LocalStorage from './LocalStorage.js';
+const html5AppId = '04ed4dea-499a-4de6-9e24-0e156b1d6c4d';
+const storage = LocalStorage.init(html5AppId);
+const datamodel = { 'sel-alg':'','chk-created': true, 'sel-expiry': 10 };
+
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
@@ -255,7 +260,7 @@ function getCreatedAndExpiryTimesForGeneration(selectedAlg) {
   if (selectedAlg.startsWith('hs2019')) {
     let now = Math.floor((new Date()).valueOf() / 1000),
         wantCreated = $('#chk-created').prop('checked'),
-        $expirySelection = $('.sel-expiry').find(':selected'),
+        $expirySelection = $('#sel-expiry').find(':selected'),
         desiredExpiry = $expirySelection.text().toLowerCase(),
         desiredLifetime = Number($expirySelection.val());
 
@@ -264,17 +269,16 @@ function getCreatedAndExpiryTimesForGeneration(selectedAlg) {
     }
 
     if (desiredExpiry != 'no expiry') {
-      ret.expires = now + desiredLifetime;
-      // let matches = (new RegExp('^([1-9][0-9]*)(mins|secs)$')).exec(desiredExpiry);
-      // if (matches && matches.length == 3) {
-      //   let factor = (matches[2] == 'mins') ? 60 : 1;
-      //   ret.expires = now + parseInt(matches[1], 10) * factor;
-      // }
+      //ret.expires = now + desiredLifetime;
+      let matches = (new RegExp('^([1-9][0-9]*) (minutes|seconds)$')).exec(desiredExpiry);
+      if (matches && matches.length == 3) {
+        let factor = (matches[2] == 'minutes') ? 60 : 1;
+        ret.expires = now + parseInt(matches[1], 10) * factor;
+      }
     }
   }
   return ret;
 }
-
 
 function generateSignature(event) {
   let headers = getHeaders(),
@@ -577,6 +581,17 @@ function algFlavor(algString) {
   return 'unknown';
 }
 
+function onChangeCreated(event) {
+  let wantCreated = $('#chk-created').prop('checked');
+  saveSetting('chk-created', String(wantCreated));
+}
+
+function onChangeExpiry(event) {
+  let $this = $(this),
+      selectedExpiry = $this.find(':selected').text();
+  saveSetting('sel-expiry', selectedExpiry);
+}
+
 function onChangeAlg(event) {
   let $this = $(this),
       selectedAlg = $this.find(':selected').text(),
@@ -604,8 +619,44 @@ function onChangeAlg(event) {
     $('#hs2019-settings').hide();
   }
   $this.data('previous-flavor', newFlavor);
+  saveSetting('sel-alg', selectedAlg);
 }
 
+function retrieveLocalState() {
+    Object.keys(datamodel)
+    .forEach(key => {
+      var value = storage.get(key);
+      if (key.startsWith('chk-')) {
+        datamodel[key] = Boolean(value);
+      }
+      else {
+        datamodel[key] = value;
+      }
+    });
+}
+
+function saveSetting(key, value) {
+  datamodel[key] = value;
+  storage.store(key, value);
+}
+
+function applyState() {
+    Object.keys(datamodel)
+    .forEach(key => {
+      var value = datamodel[key];
+      var $item = $('#' + key);
+      if (key.startsWith('sel-')) {
+        // selection
+        $item.find("option[value='"+value+"']").prop('selected', 'selected');
+      }
+      else if (key.startsWith('chk-')) {
+        $item.prop("checked", Boolean(value));
+      }
+      else {
+        $item.val(value);
+      }
+    });
+}
 
 $(document).ready(function() {
   $( '#version_id').text(BUILD_VERSION);
@@ -613,7 +664,9 @@ $(document).ready(function() {
   $( '.btn-generate' ).on('click', generateSignature);
   $( '.btn-verify' ).on('click', verifySignature);
   $( '.btn-newkeypair' ).on('click', newKeyPair);
-  $( '.sel-alg').on('change', onChangeAlg);
+  $( '#sel-alg').on('change', onChangeAlg);
+  $( '#sel-expiry').on('change', onChangeExpiry);
+  $( '#chk-created').on('change', onChangeCreated);
 
   $('#ta_privatekey').on('paste', handlePaste);
   $('#ta_publickey').on('paste', handlePaste);
@@ -631,5 +684,9 @@ $(document).ready(function() {
   $('#ta_headerlist').val(text);
 
   newKeyPair();
+
+  retrieveLocalState();
+  applyState();
+  onChangeAlg.call($('#sel-alg'));
 
 });
