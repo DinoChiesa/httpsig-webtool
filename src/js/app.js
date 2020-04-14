@@ -9,6 +9,19 @@ const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
 
+function quantify(quantity, term) {
+  let termIsPlural = term.endsWith('s');
+  let quantityIsPlural = (quantity != 1 && quantity != -1);
+
+  if (termIsPlural && !quantityIsPlural)
+    return term.slice(0, -1);
+
+  if ( ! termIsPlural && quantityIsPlural)
+    return term + 's';
+
+  return term;
+}
+
 function subtleCryptoAlgorithm(alg) {
   if (alg =='rsa-sha256') {
     return "RSASSA-PKCS1-v1_5";
@@ -20,9 +33,10 @@ function subtleCryptoAlgorithm(alg) {
     return "HMAC";
   }
   if (alg =='hs2019 (rsa)') {
-    // I could not find the required saltLength documented in the Http Sig specification,
-    // so I hard-code to the length of the output hash. This is what JWT specifies, and other
-    // systems commonly use this approach.
+    // I could not find the required saltLength documented in the Http Sig
+    // specification. Here, the value is equal to the length of the output
+    // hash. This is what JWT specifies, and other systems commonly use this
+    // approach.
     return { name: "RSA-PSS", saltLength: 512 / 8};
   }
   return "null";
@@ -241,17 +255,21 @@ function getCreatedAndExpiryTimesForGeneration(selectedAlg) {
   if (selectedAlg.startsWith('hs2019')) {
     let now = Math.floor((new Date()).valueOf() / 1000),
         wantCreated = $('#chk-created').prop('checked'),
-        desiredExpiry = $('.sel-expiry').find(':selected').text().toLowerCase();
+        $expirySelection = $('.sel-expiry').find(':selected'),
+        desiredExpiry = $expirySelection.text().toLowerCase(),
+        desiredLifetime = Number($expirySelection.val());
 
     if (wantCreated) {
       ret.created = now;
     }
 
     if (desiredExpiry != 'no expiry') {
-      let matches = (new RegExp('^([1-9][0-9]*)mins$')).exec(desiredExpiry);
-      if (matches && matches.length == 2) {
-        ret.expires = now + parseInt(matches[1], 10) * 60;
-      }
+      ret.expires = now + desiredLifetime;
+      // let matches = (new RegExp('^([1-9][0-9]*)(mins|secs)$')).exec(desiredExpiry);
+      // if (matches && matches.length == 3) {
+      //   let factor = (matches[2] == 'mins') ? 60 : 1;
+      //   ret.expires = now + parseInt(matches[1], 10) * factor;
+      // }
     }
   }
   return ret;
@@ -374,20 +392,29 @@ function verifySignature(event) {
     if (sigHeader.algorithm == 'hs2019') {
       p.then(isvalid => {
         if (isvalid) {
-          let now = Math.floor((new Date()).valueOf() / 1000);
-          let reasons = [];
-          let notes = [];
+          let nowDate = new Date(),
+              nowSeconds = Math.floor(nowDate.valueOf() / 1000),
+              reasons = [],
+              notes = [];
           if (sigHeader.created) {
-            if (sigHeader.created > now)
+            if (sigHeader.created > nowSeconds)
               reasons.push('the created time is in the future');
           }
           if (sigHeader.expires) {
-            let expiresString = (new Date(sigHeader.expires * 1000)).toISOString();
-            let nowString = (new Date()).toISOString();
-            if (sigHeader.expires < now)
-              reasons.push('the expired time is in the past ('+ expiresString +' < '+ nowString+')');
-            notes.push('expires: ' + expiresString);
-            notes.push('now: ' + nowString);
+            let expiry = new Date(sigHeader.expires * 1000),
+                delta = nowSeconds - sigHeader.expires,
+                timeUnit = quantify(delta, 'seconds');
+            if (sigHeader.expires < nowSeconds) {
+              reasons.push(`the expired time is in the past, ${delta} ${timeUnit} ago`);
+            }
+            else {
+              let expiresString = expiry.toISOString(),
+                  nowString = nowDate.toISOString();
+              delta *= -1;
+              notes.push('expires: ' + expiresString);
+              notes.push('now: ' + nowString);
+              notes.push(`time remaining: ${delta} ${timeUnit}`);
+            }
           }
 
           if (reasons.length == 0) {
