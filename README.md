@@ -24,12 +24,7 @@ Google product.
 ## Limitations
 
 This tool has some limitations:
- - algorithms: rsa-sha256, hmac-sha256
-
- - Does not handle the (created)  or the (target-request) special
-   headers.
-
- - Verification isn't working.
+ - algorithms: rsa-sha256, hmac-sha256, hs2019 (either hmac or rsa)
 
  - This tool uses EcmaScript v9, and webcrypto, which means it will run only on
    modern, current browsers.
