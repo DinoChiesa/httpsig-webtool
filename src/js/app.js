@@ -4,11 +4,11 @@ import 'bootstrap';
 import $ from "jquery";
 import NodeRSA from "node-rsa";
 import SignatureParser from "./SignatureParser.js";
-
 import LocalStorage from './LocalStorage.js';
+
 const html5AppId = '04ed4dea-499a-4de6-9e24-0e156b1d6c4d';
 const storage = LocalStorage.init(html5AppId);
-const datamodel = { 'sel-alg':'','chk-created': true, 'sel-expiry': 10 };
+let datamodel = { 'sel-alg':'','chk-created': true, 'sel-expiry': 10 };
 
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
 
@@ -406,14 +406,14 @@ function verifySignature(event) {
           }
           if (sigHeader.expires) {
             let expiry = new Date(sigHeader.expires * 1000),
+                expiresString = expiry.toISOString(),
                 delta = nowSeconds - sigHeader.expires,
                 timeUnit = quantify(delta, 'seconds');
-            if (sigHeader.expires < nowSeconds) {
-              reasons.push(`the expired time is in the past, ${delta} ${timeUnit} ago`);
+            if (delta > 0) {
+              reasons.push(`the expiry time (${expiresString}) is in the past, ${delta} ${timeUnit} ago`);
             }
             else {
-              let expiresString = expiry.toISOString(),
-                  nowString = nowDate.toISOString();
+              let nowString = nowDate.toISOString();
               delta *= -1;
               notes.push('expires: ' + expiresString);
               notes.push('now: ' + nowString);
@@ -687,6 +687,6 @@ $(document).ready(function() {
 
   retrieveLocalState();
   applyState();
-  onChangeAlg.call($('#sel-alg'));
+  onChangeAlg.call(document.querySelector('#sel-alg'), null);
 
 });
