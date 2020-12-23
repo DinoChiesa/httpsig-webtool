@@ -8,9 +8,22 @@ import LocalStorage from './LocalStorage.js';
 
 const html5AppId = '04ed4dea-499a-4de6-9e24-0e156b1d6c4d';
 const storage = LocalStorage.init(html5AppId);
-let datamodel = { 'sel-alg':'','chk-created': true, 'sel-expiry': 10 };
+let datamodel = {
+      'sel-alg':'',
+      'chk-created': true,
+      'sel-expiry': 10,
+      'sel-symkey-coding': '',
+      'ta_publickey' : '',
+      'ta_privatekey' : '',
+      'ta_symmetrickey' : ''
+    };
 
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
+const pwComponents = [
+        ['Vaguely', 'Undoubtedly', 'Indisputably', 'Understandably', 'Definitely', 'Possibly'],
+        ['Salty', 'Fresh', 'Ursine', 'Excessive', 'Daring', 'Delightful', 'Stable', 'Evolving'],
+        ['Mirror', 'Caliper', 'Postage', 'Return', 'Roadway', 'Passage', 'Statement', 'Toolbox', 'Paradox', 'Orbit', 'Bridge']
+      ];
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
 
@@ -25,6 +38,38 @@ function quantify(quantity, term) {
     return term + 's';
 
   return term;
+}
+
+function randomBoolean() {
+  return Math.floor(Math.random() * 2) == 1;
+}
+
+function randomNumber() {
+  let min = (randomBoolean())? 10: 100,
+      max = (randomBoolean())? 100000: 1000;
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function selectRandomValue (a) {
+  let L = a.length,
+      n = Math.floor(Math.random() * L);
+  return a[n];
+}
+
+function randomOctetKey() {
+  var array = new Uint8Array(48);
+  window.crypto.getRandomValues(array);
+  return array;
+}
+
+function randomPassword() {
+  return pwComponents
+    .map(selectRandomValue)
+    .join('-') +
+    '-' +
+    randomNumber().toFixed(0).padStart(4, '0').substr(-4) +
+    '-' +
+    randomNumber().toFixed(0).padStart(7, '0').substr(-7);
 }
 
 function subtleCryptoAlgorithm(alg) {
@@ -87,8 +132,8 @@ function getPbkdf2IterationCount() {
 
 function getPbkdf2SaltBuffer() {
   let keyvalue = $('#ta_pbkdf2_salt').val();
-  let coding = $('.sel-symkey-pbkdf2-salt-coding').find(':selected').text().toLowerCase();
-  let knownCodecs = ['utf-8', 'base64', 'hex'];
+  let coding = $('.sel-symkey-pbkdf2-salt-coding').find(':selected').text();
+  let knownCodecs = ['UTF-8', 'Base64', 'Hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
     return Buffer.from(keyvalue, coding);
@@ -110,8 +155,8 @@ function getHashFromAlg(alg) {
 
 function getSymmetricKey(alg) {
   const keyvalue = $('#ta_symmetrickey').val(),
-        coding = $('.sel-symkey-coding').find(':selected').text().toLowerCase(),
-        knownCodecs = ['utf-8', 'base64', 'hex'];
+        coding = $('.sel-symkey-coding').find(':selected').text(),
+        knownCodecs = ['UTF-8', 'Base64', 'Hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
     return Promise.resolve(Buffer.from(keyvalue, coding))
@@ -127,7 +172,7 @@ function getSymmetricKey(alg) {
 
   }
 
-  if (coding == 'pbkdf2') {
+  if (coding == 'PBKDF2') {
     return window
       .crypto
       .subtle
@@ -175,32 +220,34 @@ function copyToClipboard(event) {
 
   $("body").append($temp);
   $temp.val(textToCopy).select();
-  let success;
+
   try {
-    success = document.execCommand("copy");
-    if (success) {
-      // Animation to indicate copy.
-      // CodeMirror obscures the original textarea, and appends a div as the next sibling.
-      // We want to flash THAT.
-      let $cmdiv = $source.next();
-      if ($cmdiv.length>0 && $cmdiv.prop('tagName').toLowerCase() == 'div' && $cmdiv.hasClass('CodeMirror')) {
-        $cmdiv.addClass('copy-to-clipboard-flash-bg')
-          .delay('1000')
-          .queue( _ => $cmdiv.removeClass('copy-to-clipboard-flash-bg').dequeue() );
-      }
-      else {
-        // no codemirror (probably the secretkey field, which is just an input)
-        $source.addClass('copy-to-clipboard-flash-bg')
-          .delay('1000')
-          .queue( _ => $source.removeClass('copy-to-clipboard-flash-bg').dequeue() );
-      }
+    document.execCommand("copy");
+
+    // Animation to indicate copy.
+    // CodeMirror obscures the original textarea, and appends a div as the next sibling.
+    // We want to flash THAT.
+    let $cmdiv = $source.next();
+    if ($cmdiv.length>0 && $cmdiv.prop('tagName').toLowerCase() == 'div' && $cmdiv.hasClass('CodeMirror')) {
+      $cmdiv
+        .addClass('copy-to-clipboard-flash-bg')
+        .delay('16')
+        .queue( _ => $cmdiv.removeClass('copy-to-clipboard-flash-bg').dequeue() );
+    }
+    else {
+      // no codemirror (probably the secretkey field, which is just an input)
+      $source.addClass('copy-to-clipboard-flash-bg');
+      setTimeout( _ => $source.removeClass('copy-to-clipboard-flash-bg'), 1800);
+      // $source.addClass('copy-to-clipboard-flash-bg')
+      //   .delay('1000')
+      //   .queue( _ => $source.removeClass('copy-to-clipboard-flash-bg').dequeue() );
     }
   }
   catch (e) {
-    success = false;
+    // gulp
   }
   $temp.remove();
-  return success;
+
 }
 
 function getHeaderList(headers, times) {
@@ -462,12 +509,16 @@ function setAlert(html, alertClass) {
   }
   // show()
   $mainalert.removeClass('fade').addClass('show');
-  setTimeout(() => $("#mainalert").addClass('fade').removeClass('show'), 5650);
+  $("#mainalert").css('z-index', 99);
+  setTimeout(() => {
+    $("#mainalert").addClass('fade').removeClass('show');
+    setTimeout(() => $("#mainalert").css('z-index', -1), 800);
+  }, 5650);
 }
 
 function closeAlert(event){
-  //$("#mainalert").toggle();
-  $('#mainalert').removeClass('show').addClass('fade');
+  $("#mainalert").addClass('fade').removeClass('show');
+  setTimeout(() => $("#mainalert").css('z-index', -1), 800);
   return false; // Keep close.bs.alert event from removing from DOM
 }
 
@@ -518,13 +569,27 @@ function getGenKeyParams(alg) {
   throw new Error('invalid key flavor');
 }
 
-function newKeyPair(event) {
-  let selectedAlg = $('.sel-alg').find(':selected').text(),
-      flavor = algFlavor(selectedAlg);
-  if (flavor == 'rsa') {
+function newKey(event) {
+  let alg = $('.sel-alg').find(':selected').text(),
+      flavor = algFlavor(alg);
+  if (flavor == 'hmac') {
+    let coding = $('.sel-symkey-coding').find(':selected').text();
+    let keyString = null;
+    if (coding == 'UTF-8' || coding == 'PBKDF2') {
+      keyString = randomPassword();
+    }
+    else if (coding == 'Base64' || coding == 'Hex') {
+      keyString = Buffer.from(randomOctetKey()).toString(coding);
+    }
+    if (keyString) {
+      $('#ta_symmetrickey').val(keyString);
+      saveSetting('ta_symmetrickey', keyString); // for reload
+    }
+  }
+  else if (flavor == 'rsa') {
     let keyUse = ["sign", "verify"], // irrelevant for our purposes (PEM Export)
-        isExtractable = true,
-        genKeyParams = getGenKeyParams(selectedAlg);
+    isExtractable = true,
+        genKeyParams = getGenKeyParams(alg);
     return window.crypto.subtle.generateKey(genKeyParams, isExtractable, keyUse)
       .then(key => window.crypto.subtle.exportKey( "spki", key.publicKey )
             .then(keydata => updateKeyValue('public', key2pem('PUBLIC', keydata)) )
@@ -532,7 +597,7 @@ function newKeyPair(event) {
             .then(keydata => updateKeyValue('private', key2pem('PRIVATE', keydata)) ))
       .then( () => {
         $('#mainalert').removeClass('show').addClass('fade');
-    });
+      });
   }
 }
 
@@ -561,10 +626,10 @@ function newKeyPair(event) {
 
 function changeSymmetricKeyCoding(event) {
   let $this = $(this),
-      newSelection = $this.find(':selected').text().toLowerCase(),
+      newSelection = $this.find(':selected').text(),
       previousSelection = $this.data('previous-coding');
   if (newSelection != previousSelection) {
-    if (newSelection == 'pbkdf2') {
+    if (newSelection == 'PBKDF2') {
       // display the salt and iteration count
       $('#pbkdf2_params').show();
     }
@@ -573,6 +638,7 @@ function changeSymmetricKeyCoding(event) {
     }
   }
   $this.data('previous-coding', newSelection);
+  saveSetting('sel-symkey-coding', newSelection);
 }
 
 function algFlavor(algString) {
@@ -600,16 +666,23 @@ function onChangeAlg(event) {
 
   if (newFlavor != previousFlavor) {
     if (newFlavor == 'hmac') {
-      $('.btn-newkeypair').hide();
       $('#privatekey').hide();
       $('#publickey').hide();
       $('#symmetrickey').show();
+      if ( ! $('#ta_symmetrickey').val()) {
+        newKey(null);
+      }
+      changeSymmetricKeyCoding.call(document.querySelector('#sel-symkey-coding'), null);
     }
     else if (newFlavor == 'rsa') {
-      $('.btn-newkeypair').show();
       $('#privatekey').show();
       $('#publickey').show();
       $('#symmetrickey').hide();
+      let privatekey = $('#ta_privatekey').val().trim(),
+          publickey = $('#ta_publickey').val().trim();
+      if ( ! privatekey || !publickey) {
+        newKey(null);
+      }
     }
   }
   if (selectedAlg.startsWith('hs2019')) {
@@ -656,37 +729,64 @@ function applyState() {
         $item.val(value);
       }
     });
+
+  let flavor = algFlavor(datamodel['sel-alg']);
+  if (flavor == 'hmac') {
+    $('#symmetrickey').show();
+    $('#privatekey').hide();
+    $('#publickey').hide();
+    let coding = $('.sel-symkey-coding').find(':selected').text();
+    if (coding == 'PBKDF2') {
+      $('#pbkdf2_params').show();
+    }
+    else {
+      $('#pbkdf2_params').hide();
+    }
+  }
+  else {
+    $('#symmetrickey').hide();
+    //$('#pbkdf2_params').hide();
+    $('#privatekey').show();
+    $('#publickey').show();
+  }
+
 }
 
 $(document).ready(function() {
-  $( '#version_id').text(BUILD_VERSION);
-  $( '.btn-copy' ).on('click', copyToClipboard);
-  $( '.btn-generate' ).on('click', generateSignature);
-  $( '.btn-verify' ).on('click', verifySignature);
-  $( '.btn-newkeypair' ).on('click', newKeyPair);
-  $( '#sel-alg').on('change', onChangeAlg);
-  $( '#sel-expiry').on('change', onChangeExpiry);
-  $( '#chk-created').on('change', onChangeCreated);
+  $('#version_id').text(BUILD_VERSION);
+  $('.btn-copy').on('click', copyToClipboard);
+  $('.btn-generate').on('click', generateSignature);
+  $('.btn-verify').on('click', verifySignature);
+  $('.btn-newkey').on('click', newKey);
 
   $('#ta_privatekey').on('paste', handlePaste);
   $('#ta_publickey').on('paste', handlePaste);
 
-  $( '.sel-symkey-coding').on('change', changeSymmetricKeyCoding);
-
   $('#mainalert').addClass('fade');
   $('#mainalert').on('close.bs.alert', closeAlert);
 
-  $('#symmetrickey').hide();
-  $('#pbkdf2_params').hide();
   $('#hs2019-settings').hide();
 
   var text = reformIndents($('#ta_headerlist').val());
   $('#ta_headerlist').val(text);
 
-  newKeyPair();
-
   retrieveLocalState();
+
+  $('.sel-symkey-coding').on('change', changeSymmetricKeyCoding);
+  $('#sel-alg').on('change', onChangeAlg);
+  $('#sel-expiry').on('change', onChangeExpiry);
+  $('#chk-created').on('change', onChangeCreated);
+
   applyState();
-  onChangeAlg.call(document.querySelector('#sel-alg'), null);
+
+  let flavor = algFlavor(datamodel['sel-alg']);
+  if ( ! datamodel.ta_symmetrickey && flavor == 'hmac') {
+    newKey();
+  }
+  else if (( ! datamodel.ta_privatekey || !datamodel.ta_privatekey) && flavor == 'rsa') {
+    newKey();
+  }
+
+  //onChangeAlg.call(document.querySelector('#sel-alg'), null);
 
 });
