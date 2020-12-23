@@ -1,32 +1,35 @@
 @import "custom";
+$grey: #808080;
+$lightgrey: #BDBDBD;
 
 body {
   margin: 12px 20px;
 }
 
 .container {
-    width: 100%;
-    max-width: 1540px;
-    padding: 0 15px;
-    margin: auto;
-    overflow: hidden;
+  margin: auto;
+  max-width: 1540px;
+  overflow: hidden;
+  padding: 0 15px;
+  width: 100%;
 }
 
 textarea {
   font-family: monospace;
-  max-width:876px;
-  width:100%;
+  max-width: 876px;
+  width: 100%;
 }
 
 .panel {
-  border-width: 1px 1px 1px 1px;
-  border-color: grey;
+  border-color: $grey;
   border-style: dotted;
+  border-width: 1px;
+  font-size: 160%;
   padding: 0 8px;
-  font-size:160%;
+
   p {
-    margin-bottom: 0.2rem;
-    color: #BDBDBD;
+    color: $lightgrey;
+    margin-bottom: .2rem;
   }
 }
 
@@ -36,41 +39,44 @@ textarea {
 
 .panel-left {
   float: left;
-  width: 580px;
-  min-height: 720px;
   margin: 2px 0;
+  min-height: 720px;
+  width: 580px;
 }
 
 .panel-center {
-  float: left;
-  width: 114px;
-  margin: 2px 0;
   border-width: 0;
+  float: left;
+  margin: 2px 0;
+  width: 114px;
+
   > button {
     margin-top: 14px;
     width: 118px;
   }
+
   > select {
     width: 118px;
   }
+
   > select:not(:first-child) {
     margin-top: 14px;
   }
 }
 
 .panel-right {
-  min-width: 426px;
   margin-left: 716px;
+  min-width: 426px;
 }
 
 .plaintextvalue {
-  max-width: 1024px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  padding: 4px;
-  margin: 0 0 8px 0;
   font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
-  font-size: 0.8rem;
+  font-size: .8rem;
+  margin: 0 0 8px;
+  max-width: 1024px;
+  padding: 4px;
 
   /* all below, to handle really long JWTs */
   white-space: -moz-pre-wrap !important;  /* Mozilla, since 1999 */
@@ -85,36 +91,39 @@ textarea {
 
 
 #symmetrickey {
+
   > input {
-    width: 100%;
-    padding-left: 6px;
     font-family: monospace;
+    padding-left: 6px;
+    width: 100%;
   }
+
   > div {
     margin-left: 32px;
+
     span {
-      color: #BDBDBD;
+      color: $lightgrey;
+      display: inline-block;
       font-size: 80%;
       width: 140px;
-      display: inline-block;
     }
     input {
+      font-family: monospace;
       margin-left: 8px;
       padding-left: 6px;
       width: 440px;
-      font-family: monospace;
     }
     select {
+      display: inline-block;
       margin-left: 8px;
       width: 180px;
-      display: inline-block;
     }
   }
 }
 
 #ta_privatekey, #ta_publickey {
-    font-size: 0.8rem;
-    max-height: 232px;
+  font-size: .8rem;
+  max-height: 232px;
 }
 
 .banner > .alert {
@@ -123,35 +132,35 @@ textarea {
 }
 
 .btn-copy, .btn-newkey {
-  padding: 2px 6px;
-  margin: 0 4px;
   float: right;
-  top: 8px;
+  margin: 0 4px;
+  padding: 2px 6px;
   position: relative;
+  top: 8px;
 }
 
 .banner, .footer {
-  border: 1px dotted grey;
+  border: 1px dotted $grey;
 }
 
 .banner {
-  margin-bottom:24px;
   background-color: #DFDDDD;
   height: 120px;
+  margin-bottom: 24px;
 }
 
 .footer {
-  margin-top:24px;
   background-color: #ECECEC;
-  padding: 0 4px;
+  margin-top: 24px;
   min-height: 120px;
+  padding: 0 4px;
 }
 
 .banner > h2, .banner > div {
-  margin: 0;
-  position: absolute;
   left: 50%;
+  margin: 0;
   margin-right: -50%;
+  position: absolute;
   transform: translate(-50%, -50%)
 }
 
@@ -164,14 +173,14 @@ textarea {
 }
 
 .banner > div#buildversion {
-  top: 100px;
-  left: 0%;
-  position: relative;
-  margin-right: 6px;
-  transform: none;
-  text-align: right;
   font-size: 75%;
   font-style: italic;
+  left: 0%;
+  margin-right: 6px;
+  position: relative;
+  text-align: right;
+  top: 100px;
+  transform: none;
 }
 
 .alert.fade {
@@ -180,18 +189,18 @@ textarea {
 }
 
 .copy-to-clipboard-flash-bg {
-    animation-name: flashbg;
-    animation-timing-function: ease-out;
-    animation-duration: 1s;
+  animation-duration: 1s;
+  animation-name: flashbg;
+  animation-timing-function: ease-out;
 }
 
 @keyframes flashbg {
-    0% {
-        background: #539EDB;
-    }
-    100% {
-        background: transparent;
-    }
+  0% {
+    background: #539EDB;
+  }
+  100% {
+    background: transparent;
+  }
 }
 
 .outdated {
@@ -199,6 +208,6 @@ textarea {
 }
 
 #symmetrickey input[disabled] {
-    color: #636C77;
-    background-color: #E9ECEF;
+  color: #636C77;
+  background-color: #E9ECEF;
 }
