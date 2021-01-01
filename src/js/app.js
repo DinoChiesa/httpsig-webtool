@@ -716,8 +716,8 @@ function saveSetting(key, value) {
 function applyState() {
     Object.keys(datamodel)
     .forEach(key => {
-      var value = datamodel[key];
-      var $item = $('#' + key);
+      let value = datamodel[key],
+          $item = $('#' + key);
       if (key.startsWith('sel-')) {
         // selection
         $item.find("option[value='"+value+"']").prop('selected', 'selected');
@@ -730,7 +730,14 @@ function applyState() {
       }
     });
 
-  let flavor = algFlavor(datamodel['sel-alg']);
+  let alg = datamodel['sel-alg'];
+  if (!alg) {
+    alg = 'rsa-sha256'; // default
+    saveSetting('sel-alg', alg);
+    let $item = $('#sel-alg');
+    $item.find("option[value='"+alg+"']").prop('selected', 'selected');
+  }
+  let flavor = algFlavor(alg);
   if (flavor == 'hmac') {
     $('#symmetrickey').show();
     $('#privatekey').hide();
@@ -749,7 +756,6 @@ function applyState() {
     $('#privatekey').show();
     $('#publickey').show();
   }
-
 }
 
 $(document).ready(function() {
