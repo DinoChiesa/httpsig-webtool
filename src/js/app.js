@@ -724,7 +724,9 @@ function applyState() {
           $item = $('#' + key);
       if (key.startsWith('sel-')) {
         // selection
-        $item.find("option[value='"+value+"']").prop('selected', 'selected');
+        $item.find("option[value='"+value+"']")
+          .prop('selected', 'selected')
+          .trigger("change");
       }
       else if (key.startsWith('chk-')) {
         $item.prop("checked", Boolean(value));
@@ -739,7 +741,9 @@ function applyState() {
     alg = 'rsa-sha256'; // default
     saveSetting('sel-alg', alg);
     let $item = $('#sel-alg');
-    $item.find("option[value='"+alg+"']").prop('selected', 'selected');
+    $item.find("option[value='"+alg+"']")
+      .prop('selected', 'selected')
+      .trigger("change");
   }
   let flavor = algFlavor(alg);
   if (flavor == 'hmac') {
