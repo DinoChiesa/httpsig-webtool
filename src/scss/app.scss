@@ -98,6 +98,15 @@ textarea {
     width: 118px;
   }
 
+  > div {
+    font-size: 60%;
+    margin-top: 16px;
+
+    input {
+      width: 118px;
+    }
+  }
+
   > select:not(:first-child) {
     margin-top: 14px;
   }

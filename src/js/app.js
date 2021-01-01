@@ -13,6 +13,7 @@ let datamodel = {
       'chk-created': true,
       'sel-expiry': 10,
       'sel-symkey-coding': '',
+      'ta-keyid' : 'abcdefg-123',
       'ta_publickey' : '',
       'ta_privatekey' : '',
       'ta_symmetrickey' : ''
@@ -20,9 +21,20 @@ let datamodel = {
 
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
 const pwComponents = [
-        ['Vaguely', 'Undoubtedly', 'Indisputably', 'Understandably', 'Definitely', 'Possibly', 'Verifiably'],
-        ['Salty', 'Fresh', 'Ursine', 'Excessive', 'Daring', 'Delightful', 'Stable', 'Evolving', 'Resilient', 'Dynamic', 'Confounding', 'Ordered', 'Infinite', 'Public', 'Private'],
-        ['Mirror', 'Collection','Caliper', 'Postage', 'Portfolio', 'Roadway', 'Passage', 'Statement', 'Toolbox', 'Paradox', 'Orbit', 'Bridge', 'Story', 'Bracket', 'Journey', 'Expedition']
+        [
+          'Vaguely', 'Undoubtedly', 'Indisputably', 'Understandably',
+          'Definitely', 'Possibly', 'Verifiably'
+        ],
+        [
+          'Salty', 'Fresh', 'Ursine', 'Excessive', 'Daring', 'Delightful', 'Stable',
+          'Evolving', 'Resilient', 'Dynamic', 'Confounding', 'Ordered', 'Infinite',
+          'Public', 'Private', 'Personal', 'Strategic'
+        ],
+        [
+          'Mirror', 'Collection','Caliper', 'Postage', 'Portfolio', 'Roadway',
+          'Passage', 'Statement', 'Toolbox', 'Paradox', 'Orbit', 'Bridge', 'Story',
+          'Bracket', 'Journey', 'Expedition', 'Strategy'
+        ]
       ];
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
@@ -281,7 +293,11 @@ function getStringToSign(headers, times, ordering) {
   return list.join('\n');
 }
 
-
+function getKeyId() {
+  let text = $('#ta-keyid').val().trim();
+  saveSetting('ta-keyid', text);
+  return text;
+}
 
 function getHeaders() {
   let text = $('#ta_headerlist').val(),
@@ -362,8 +378,9 @@ function generateSignature(event) {
       let headerList = getHeaderList(headers, times),
           algForHeader = algSelectionToAlg(algSelection),
           flavor = algFlavor(algSelection),
+          keyId = getKeyId(),
           items = [
-            `keyId="${flavor}-test"`,
+            `keyId="${keyId}"`,
             `algorithm="${algForHeader}"`,
             `headers="${headerList}"`
           ];
@@ -707,7 +724,8 @@ function retrieveLocalState() {
         datamodel[key] = Boolean(value);
       }
       else {
-        datamodel[key] = value;
+        if ((key != 'ta-keyid') || value)
+          datamodel[key] = value;
       }
     });
 }
