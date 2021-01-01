@@ -384,6 +384,9 @@ function generateSignature(event) {
     });
 }
 
+function secondsAccuracyIsoString(t) {
+  return t.toISOString().replace( new RegExp('\\\.\\d{3}Z$'), 'Z');
+}
 
 function verifySignature(event) {
   try {
@@ -453,14 +456,14 @@ function verifySignature(event) {
           }
           if (sigHeader.expires) {
             let expiry = new Date(sigHeader.expires * 1000),
-                expiresString = expiry.toISOString(),
+                expiresString = secondsAccuracyIsoString(expiry),
                 delta = nowSeconds - sigHeader.expires,
                 timeUnit = quantify(delta, 'seconds');
             if (delta > 0) {
               reasons.push(`the expiry time (${expiresString}) is in the past, ${delta} ${timeUnit} ago`);
             }
             else {
-              let nowString = nowDate.toISOString();
+              let nowString = secondsAccuracyIsoString(nowDate);
               delta *= -1;
               notes.push('expires: ' + expiresString);
               notes.push('now: ' + nowString);
@@ -642,6 +645,7 @@ function changeSymmetricKeyCoding(event) {
 }
 
 function algFlavor(algString) {
+  if ( ! algString) return 'unknown';
   if (algString.indexOf('hmac') >= 0) return 'hmac';
   if (algString.indexOf('rsa') >= 0) return 'rsa';
   return 'unknown';
