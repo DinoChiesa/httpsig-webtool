@@ -20,9 +20,9 @@ let datamodel = {
 
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
 const pwComponents = [
-        ['Vaguely', 'Undoubtedly', 'Indisputably', 'Understandably', 'Definitely', 'Possibly'],
-        ['Salty', 'Fresh', 'Ursine', 'Excessive', 'Daring', 'Delightful', 'Stable', 'Evolving'],
-        ['Mirror', 'Caliper', 'Postage', 'Return', 'Roadway', 'Passage', 'Statement', 'Toolbox', 'Paradox', 'Orbit', 'Bridge']
+        ['Vaguely', 'Undoubtedly', 'Indisputably', 'Understandably', 'Definitely', 'Possibly', 'Verifiably'],
+        ['Salty', 'Fresh', 'Ursine', 'Excessive', 'Daring', 'Delightful', 'Stable', 'Evolving', 'Resilient', 'Dynamic', 'Confounding', 'Ordered', 'Infinite', 'Public', 'Private'],
+        ['Mirror', 'Collection','Caliper', 'Postage', 'Portfolio', 'Roadway', 'Passage', 'Statement', 'Toolbox', 'Paradox', 'Orbit', 'Bridge', 'Story', 'Bracket', 'Journey', 'Expedition']
       ];
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
