@@ -721,7 +721,7 @@ function retrieveLocalState() {
     .forEach(key => {
       var value = storage.get(key);
       if (key.startsWith('chk-')) {
-        datamodel[key] = (value == 'true');
+        datamodel[key] = (String(value) == 'true');
       }
       else {
         if ((key != 'ta-keyid') || value)
@@ -747,7 +747,7 @@ function applyState() {
           .trigger("change");
       }
       else if (key.startsWith('chk-')) {
-        $item.prop("checked", Boolean(value));
+        $item.prop("checked", (String(value) == 'true'));
       }
       else {
         $item.val(value);
