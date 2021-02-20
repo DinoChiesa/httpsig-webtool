@@ -721,7 +721,7 @@ function retrieveLocalState() {
     .forEach(key => {
       var value = storage.get(key);
       if (key.startsWith('chk-')) {
-        datamodel[key] = Boolean(value);
+        datamodel[key] = (value == 'true');
       }
       else {
         if ((key != 'ta-keyid') || value)
