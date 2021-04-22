@@ -30,14 +30,27 @@ function makeConfig(mode) {
               use: ['style-loader',
                     {
                       loader: MiniCssExtractPlugin.loader,
-                      options: {
-                        hmr: mode === 'development',
-                      },
+                      options: { }
                     },
                     'css-loader', 'sass-loader']
             }]
         },
+        resolve: {
+          fallback: {
+            assert: false,
+            constants: require.resolve("constants-browserify"),
+            "buffer": require.resolve("buffer/"),
+            "crypto": require.resolve("crypto-browserify"),
+            "stream": require.resolve("stream-browserify")
+          }
+        },
+
+
         plugins: [
+          new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer']
+          }),
+
           new CopyPlugin({patterns:[
             { from: 'src/index.html', to: 'index.html' }
           ]}),

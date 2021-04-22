@@ -16,7 +16,8 @@ let datamodel = {
       'ta-keyid' : 'abcdefg-123',
       'ta_publickey' : '',
       'ta_privatekey' : '',
-      'ta_symmetrickey' : ''
+      'ta_symmetrickey' : '',
+      ta_headerlist : ''
     };
 
 const requiredKeys = ['algorithm', 'keyId', 'headers', 'signature'];
@@ -38,6 +39,11 @@ const pwComponents = [
       ];
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
+const defaultHeaders =
+  '              x-request-id: 00000000-0000-0000-0000-000000000004\n' +
+'              tpp-redirect-uri: https://www.sometpp.com/redirect/\n' +
+'              digest: SHA-256=TGGHcPGLechhcNo4gndoKUvCBhWaQOPgtoVDIpxc6J4=\n' +
+  '              psu-id: 1337\n' ;
 
 function quantify(quantity, term) {
   let termIsPlural = term.endsWith('s');
@@ -730,6 +736,19 @@ function retrieveLocalState() {
     });
 }
 
+function fixupHeaderList() {
+  let text = $('#ta_headerlist').val();
+  if ( !text || text.trim() == '') {
+    text = defaultHeaders;
+    //saveSetting('ta_headerlist', text);
+  }
+  let reformedText = reformIndents(text);
+  if (reformedText != text) {
+    saveSetting('ta_headerlist', reformedText);
+    $('#ta_headerlist').val(reformedText);
+  }
+}
+
 function saveSetting(key, value) {
   datamodel[key] = value;
   storage.store(key, value);
@@ -799,10 +818,8 @@ $(document).ready(function() {
 
   $('#hs2019-settings').hide();
 
-  var text = reformIndents($('#ta_headerlist').val());
-  $('#ta_headerlist').val(text);
-
   retrieveLocalState();
+  fixupHeaderList();
 
   $('.sel-symkey-coding').on('change', changeSymmetricKeyCoding);
   $('#sel-alg').on('change', onChangeAlg);
