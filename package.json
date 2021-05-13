@@ -1,6 +1,6 @@
 {
   "name": "httpsig-webtool",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "main": "webpack.config.js",
   "repository": {
@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "child_process": "^1.0.2",
-    "copy-webpack-plugin": "^6.3.1",
+    "copy-webpack-plugin": "^8.1.1",
     "css-loader": "^3.4.2",
     "mini-css-extract-plugin": "^1.5.0",
     "node-sass": "^4.14.1",
