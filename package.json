@@ -1,7 +1,7 @@
 {
   "name": "httpsig-webtool",
-  "version": "1.0.3",
-  "description": "",
+  "version": "1.0.4",
+  "description": "web tool to parse, generate, and validate HTTP Signature",
   "main": "webpack.config.js",
   "repository": {
     "type": "git",
@@ -14,8 +14,9 @@
     "build": "rm -rf dist/* && webpack --mode=production --progress --color"
   },
   "keywords": [
-    "JWT",
-    "node-jose"
+    "HTTPSignature",
+    "HMAC",
+    "RSA"
   ],
   "author": "Dino Chiesa <dchiesa@google.com>",
   "license": "Apache-2.0",
@@ -33,14 +34,17 @@
   "devDependencies": {
     "child_process": "^1.0.2",
     "copy-webpack-plugin": "^8.1.1",
-    "css-loader": "^3.4.2",
+    "css-loader": "^6.7.1",
     "mini-css-extract-plugin": "^1.5.0",
-    "node-sass": "^4.14.1",
-    "precss": "^3.1.2",
-    "sass-loader": "^11.0.1",
-    "style-loader": "^0.19.1",
+    "sass-loader": "^12.3.0",
+    "node-sass": "^7.0.1",
+    "style-loader": "^3.3.1",
     "url-loader": "^4.1.1",
     "webpack": "^5.35.0",
-    "webpack-cli": "^4.6.0"
+    "webpack-cli": "^4.9.1"
+  },
+  "engines": {
+    "node": ">= 12.22.0",
+    "npm": ">= 8.3.0"
   }
 }
