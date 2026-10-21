@@ -1,7 +1,5 @@
-/* global BUILD_VERSION, TextEncoder */
+/* global BUILD_VERSION, TextEncoder, navigator */
 
-import 'bootstrap';
-import $ from "jquery";
 import { pemToDer } from "./pem.js";
 import { bytesFromText, textFromBytes, bytesFromBase64 } from "./encoding.js";
 import SignatureParser from "./SignatureParser.js";
@@ -38,6 +36,14 @@ const pwComponents = [
           'Bracket', 'Journey', 'Expedition', 'Strategy'
         ]
       ];
+
+const $sel = (query) => document.querySelector(query),
+      $all = (query) => document.querySelectorAll(query),
+      selectedText = (query) => {
+        const el = $sel(query);
+        return el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : '';
+      },
+      setVisible = (query, visible) => { $sel(query).hidden = !visible; };
 
 const PBKDF_ITERATIONS = {DEFAULT:8192, MAX: 100001, MIN:50};
 const defaultHeaders =
@@ -126,15 +132,15 @@ function reformIndents(s) {
 }
 
 function handlePaste(e) {
-  let elt = this;
+  const elt = e.currentTarget;
   setTimeout(function () {
-    var text = reformIndents($(elt).val());
-    $(elt).val(text);
+    elt.value = reformIndents(elt.value);
+    saveSetting(elt.id, elt.value);
   }, 100);
 }
 
 function getPbkdf2IterationCount() {
-  let icountvalue = $('#ta_pbkdf2_iterations').val(),
+  let icountvalue = $sel('#ta_pbkdf2_iterations').value,
       icount = PBKDF_ITERATIONS.DEFAULT;
   try {
     icount = Number.parseInt(icountvalue, 10);
@@ -150,8 +156,8 @@ function getPbkdf2IterationCount() {
 }
 
 function getPbkdf2SaltBuffer() {
-  let keyvalue = $('#ta_pbkdf2_salt').val();
-  let coding = $('.sel-symkey-pbkdf2-salt-coding').find(':selected').text();
+  let keyvalue = $sel('#ta_pbkdf2_salt').value;
+  let coding = selectedText('.sel-symkey-pbkdf2-salt-coding');
   let knownCodecs = ['UTF-8', 'Base64', 'Hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
@@ -173,8 +179,8 @@ function getHashFromAlg(alg) {
 }
 
 function getSymmetricKey(alg) {
-  const keyvalue = $('#ta_symmetrickey').val(),
-        coding = $('.sel-symkey-coding').find(':selected').text(),
+  const keyvalue = $sel('#ta_symmetrickey').value,
+        coding = selectedText('.sel-symkey-coding'),
         knownCodecs = ['UTF-8', 'Base64', 'Hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
@@ -218,55 +224,27 @@ function getSymmetricKey(alg) {
 }
 
 function getPrivateKey() {
-  return $('#ta_privatekey').val();
+  return $sel('#ta_privatekey').value;
 }
 
 function getPublicKey() {
-  return $('#ta_publickey').val();
+  return $sel('#ta_publickey').value;
 }
 
-function copyToClipboard(event) {
-  let $elt = $(this),
-      sourceElement = $elt.data('target'),
-      // grab the element to copy
-      $source = $('#' + sourceElement),
-      // Create a temporary hidden textarea.
-      $temp = $("<textarea>");
-
-  //let textToCopy = $source.val();
-  // in which case do I need text() ?
-  let textToCopy = ($source[0].tagName == 'TEXTAREA' || $source[0].tagName == 'INPUT') ? $source.val() : $source.text();
-
-  $("body").append($temp);
-  $temp.val(textToCopy).select();
+async function copyToClipboard(event) {
+  const sourceElement = event.currentTarget.getAttribute('data-target'),
+        $source = document.getElementById(sourceElement),
+        textToCopy = ($source.tagName == 'TEXTAREA' || $source.tagName == 'INPUT') ? $source.value : $source.textContent;
 
   try {
-    document.execCommand("copy");
-
+    await navigator.clipboard.writeText(textToCopy);
     // Animation to indicate copy.
-    // CodeMirror obscures the original textarea, and appends a div as the next sibling.
-    // We want to flash THAT.
-    let $cmdiv = $source.next();
-    if ($cmdiv.length>0 && $cmdiv.prop('tagName').toLowerCase() == 'div' && $cmdiv.hasClass('CodeMirror')) {
-      $cmdiv
-        .addClass('copy-to-clipboard-flash-bg')
-        .delay('16')
-        .queue( _ => $cmdiv.removeClass('copy-to-clipboard-flash-bg').dequeue() );
-    }
-    else {
-      // no codemirror (probably the secretkey field, which is just an input)
-      $source.addClass('copy-to-clipboard-flash-bg');
-      setTimeout( _ => $source.removeClass('copy-to-clipboard-flash-bg'), 1800);
-      // $source.addClass('copy-to-clipboard-flash-bg')
-      //   .delay('1000')
-      //   .queue( _ => $source.removeClass('copy-to-clipboard-flash-bg').dequeue() );
-    }
+    $source.classList.add('copy-to-clipboard-flash-bg');
+    setTimeout( _ => $source.classList.remove('copy-to-clipboard-flash-bg'), 1800);
   }
   catch (e) {
     // gulp
   }
-  $temp.remove();
-
 }
 
 function getHeaderList(headers, times) {
@@ -301,13 +279,13 @@ function getStringToSign(headers, times, ordering) {
 }
 
 function getKeyId() {
-  let text = $('#ta-keyid').val().trim();
+  let text = $sel('#ta-keyid').value.trim();
   saveSetting('ta-keyid', text);
   return text;
 }
 
 function getHeaders() {
-  let text = $('#ta_headerlist').val(),
+  let text = $sel('#ta_headerlist').value,
       re2 = new RegExp('^(.+?):(.+)$'),
       onNewlines = new RegExp('(\r\n|\n)', 'g'),
       headers = {};
@@ -329,10 +307,8 @@ function getCreatedAndExpiryTimesForGeneration(selectedAlg) {
   let ret = {};
   if (selectedAlg.startsWith('hs2019')) {
     let now = Math.floor((new Date()).valueOf() / 1000),
-        wantCreated = $('#chk-created').prop('checked'),
-        $expirySelection = $('#sel-expiry').find(':selected'),
-        desiredExpiry = $expirySelection.text().toLowerCase(),
-        desiredLifetime = Number($expirySelection.val());
+        wantCreated = $sel('#chk-created').checked,
+        desiredExpiry = selectedText('#sel-expiry').toLowerCase();
 
     if (wantCreated) {
       ret.created = now;
@@ -352,7 +328,7 @@ function getCreatedAndExpiryTimesForGeneration(selectedAlg) {
 
 function generateSignature(event) {
   let headers = getHeaders(),
-      algSelection = $('.sel-alg').find(':selected').text(),
+      algSelection = selectedText('.sel-alg'),
       p = null;
   if ((algSelection == 'hmac-sha256') || (algSelection == 'hs2019 (hmac)')) {
     p = getSymmetricKey(algSelection);
@@ -381,7 +357,7 @@ function generateSignature(event) {
       return window.btoa(String.fromCharCode(...new Uint8Array(signatureData)));
     })
     .then( signature => {
-      $('#ta_signature').val(signature);
+      $sel('#ta_signature').value = signature;
       let headerList = getHeaderList(headers, times),
           algForHeader = algSelectionToAlg(algSelection),
           flavor = algFlavor(algSelection),
@@ -400,7 +376,7 @@ function generateSignature(event) {
       }
       items.push(`signature="${signature}"`);
 
-      $('#ta_httpsigheader').val('Signature ' + items.join(', '));
+      $sel('#ta_httpsigheader').value = 'Signature ' + items.join(', ');
     })
     .catch( e => {
       console.log(e.stack);
@@ -414,12 +390,12 @@ function secondsAccuracyIsoString(t) {
 
 function verifySignature(event) {
   try {
-    const sigHeader = SignatureParser.parse($('#ta_httpsigheader').val()),
+    const sigHeader = SignatureParser.parse($sel('#ta_httpsigheader').value),
           sigBytes = bytesFromBase64(sigHeader.signature),
           times = {created: sigHeader.created, expires: sigHeader.expires},
           stringToSign = getStringToSign(getHeaders(), times, sigHeader.headers),
           data = new TextEncoder().encode(stringToSign),
-          selectedAlg = $('.sel-alg').find(':selected').text(),
+          selectedAlg = selectedText('.sel-alg'),
           flavor = algFlavor(selectedAlg);
     let p = null;
     if (sigHeader.algorithm == 'rsa-sha256') {
@@ -522,35 +498,35 @@ function verifySignature(event) {
 }
 
 function setAlert(html, alertClass) {
-  let buttonHtml = '<button type="button" class="close" data-dismiss="alert" aria-label="Close">\n' +
+  const buttonHtml = '<button type="button" class="close" aria-label="Close">\n' +
     ' <span aria-hidden="true">&times;</span>\n' +
     '</button>',
-      $mainalert = $("#mainalert");
-  $mainalert.html(html + buttonHtml);
-  if (alertClass) {
-    $mainalert.removeClass('alert-warning'); // this is the default
-    $mainalert.addClass('alert-' + alertClass); // success, primary, warning, etc
-  }
-  else {
-    $mainalert.addClass('alert-warning');
-  }
+        $mainalert = $sel("#mainalert");
+  $mainalert.innerHTML = html + buttonHtml;
+  $mainalert.classList.remove('alert-warning', 'alert-success', 'alert-info');
+  $mainalert.classList.add('alert-' + (alertClass || 'warning')); // success, info, warning
   // show()
-  $mainalert.removeClass('fade').addClass('show');
-  $("#mainalert").css('z-index', 99);
-  setTimeout(() => {
-    $("#mainalert").addClass('fade').removeClass('show');
-    setTimeout(() => $("#mainalert").css('z-index', -1), 800);
-  }, 5650);
+  $mainalert.classList.remove('fade');
+  $mainalert.classList.add('show');
+  $mainalert.style.zIndex = 99;
+  const tid = setTimeout(closeAlert, 5650);
+  $mainalert.querySelector('button.close').addEventListener('click', () => {
+    clearTimeout(tid);
+    closeAlert();
+  });
 }
 
-function closeAlert(event){
-  $("#mainalert").addClass('fade').removeClass('show');
-  setTimeout(() => $("#mainalert").css('z-index', -1), 800);
-  return false; // Keep close.bs.alert event from removing from DOM
+function closeAlert() {
+  const $mainalert = $sel("#mainalert");
+  $mainalert.classList.add('fade');
+  $mainalert.classList.remove('show');
+  setTimeout(() => { $mainalert.style.zIndex = -1; }, 800);
 }
 
 function updateKeyValue(flavor /* public || private */, keyvalue) {
-  $('#ta_' + flavor + 'key').val(keyvalue);
+  const id = 'ta_' + flavor + 'key';
+  $sel('#' + id).value = keyvalue;
+  saveSetting(id, keyvalue);
 }
 
 function key2pem(flavor, keydata) {
@@ -576,10 +552,10 @@ function getGenKeyParams(alg) {
 }
 
 function newKey(event) {
-  let alg = $('.sel-alg').find(':selected').text(),
+  let alg = selectedText('.sel-alg'),
       flavor = algFlavor(alg);
   if (flavor == 'hmac') {
-    let coding = $('.sel-symkey-coding').find(':selected').text();
+    let coding = selectedText('.sel-symkey-coding');
     let keyString = null;
     if (coding == 'UTF-8' || coding == 'PBKDF2') {
       keyString = randomPassword();
@@ -588,7 +564,7 @@ function newKey(event) {
       keyString = textFromBytes(randomOctetKey(), coding);
     }
     if (keyString) {
-      $('#ta_symmetrickey').val(keyString);
+      $sel('#ta_symmetrickey').value = keyString;
       saveSetting('ta_symmetrickey', keyString); // for reload
     }
   }
@@ -601,9 +577,7 @@ function newKey(event) {
             .then(keydata => updateKeyValue('public', key2pem('PUBLIC', keydata)) )
             .then( () => window.crypto.subtle.exportKey( "pkcs8", key.privateKey ))
             .then(keydata => updateKeyValue('private', key2pem('PRIVATE', keydata)) ))
-      .then( () => {
-        $('#mainalert').removeClass('show').addClass('fade');
-      });
+      .then( () => closeAlert());
   }
 }
 
@@ -630,21 +604,11 @@ function newKey(event) {
 // }
 
 
-function changeSymmetricKeyCoding(event) {
-  let $this = $(this),
-      newSelection = $this.find(':selected').text(),
-      previousSelection = $this.data('previous-coding');
-  if (newSelection != previousSelection) {
-    if (newSelection == 'PBKDF2') {
-      // display the salt and iteration count
-      $('#pbkdf2_params').show();
-    }
-    else {
-      $('#pbkdf2_params').hide();
-    }
-  }
-  $this.data('previous-coding', newSelection);
-  saveSetting('sel-symkey-coding', newSelection);
+function changeSymmetricKeyCoding() {
+  const coding = selectedText('#sel-symkey-coding');
+  // display the salt and iteration count only for PBKDF2
+  setVisible('#pbkdf2_params', coding == 'PBKDF2');
+  saveSetting('sel-symkey-coding', coding);
 }
 
 function algFlavor(algString) {
@@ -655,77 +619,60 @@ function algFlavor(algString) {
 }
 
 function onChangeCreated(event) {
-  let wantCreated = $('#chk-created').prop('checked');
-  saveSetting('chk-created', String(wantCreated));
+  saveSetting('chk-created', String(event.currentTarget.checked));
 }
 
 function onChangeExpiry(event) {
-  let $this = $(this),
-      selectedExpiry = $this.find(':selected').text();
-  saveSetting('sel-expiry', selectedExpiry);
+  saveSetting('sel-expiry', selectedText('#sel-expiry'));
+}
+
+// Show the key inputs and settings that apply to the selected algorithm.
+function updateUiForAlg(selectedAlg) {
+  const flavor = algFlavor(selectedAlg);
+  setVisible('#privatekey', flavor == 'rsa');
+  setVisible('#publickey', flavor == 'rsa');
+  setVisible('#symmetrickey', flavor == 'hmac');
+  setVisible('#pbkdf2_params', flavor == 'hmac' && selectedText('#sel-symkey-coding') == 'PBKDF2');
+  setVisible('#hs2019-settings', selectedAlg.startsWith('hs2019'));
+}
+
+function keysMissingFor(flavor) {
+  if (flavor == 'hmac') {
+    return !$sel('#ta_symmetrickey').value;
+  }
+  return !$sel('#ta_privatekey').value.trim() || !$sel('#ta_publickey').value.trim();
 }
 
 function onChangeAlg(event) {
-  let $this = $(this),
-      selectedAlg = $this.find(':selected').text(),
-      newFlavor = algFlavor(selectedAlg),
-      previousFlavor = $this.data('previous-flavor');
-
-  if (newFlavor != previousFlavor) {
-    if (newFlavor == 'hmac') {
-      $('#privatekey').hide();
-      $('#publickey').hide();
-      $('#symmetrickey').show();
-      if ( ! $('#ta_symmetrickey').val()) {
-        newKey(null);
-      }
-      changeSymmetricKeyCoding.call(document.querySelector('#sel-symkey-coding'), null);
-    }
-    else if (newFlavor == 'rsa') {
-      $('#privatekey').show();
-      $('#publickey').show();
-      $('#symmetrickey').hide();
-      let privatekey = $('#ta_privatekey').val().trim(),
-          publickey = $('#ta_publickey').val().trim();
-      if ( ! privatekey || !publickey) {
-        newKey(null);
-      }
-    }
+  const selectedAlg = selectedText('#sel-alg');
+  updateUiForAlg(selectedAlg);
+  if (keysMissingFor(algFlavor(selectedAlg))) {
+    newKey(null);
   }
-  if (selectedAlg.startsWith('hs2019')) {
-    $('#hs2019-settings').show();
-  }
-  else {
-    $('#hs2019-settings').hide();
-  }
-  $this.data('previous-flavor', newFlavor);
   saveSetting('sel-alg', selectedAlg);
 }
 
 function retrieveLocalState() {
-    Object.keys(datamodel)
+  Object.keys(datamodel)
     .forEach(key => {
-      var value = storage.get(key);
-      if (key.startsWith('chk-')) {
-        datamodel[key] = (String(value) == 'true');
+      const value = storage.get(key);
+      if (value === null || (key == 'ta-keyid' && !value)) {
+        return; // nothing stored yet; keep the default
       }
-      else {
-        if ((key != 'ta-keyid') || value)
-          datamodel[key] = value;
-      }
+      datamodel[key] = key.startsWith('chk-') ? value == 'true' : value;
     });
 }
 
 function fixupHeaderList() {
-  let text = $('#ta_headerlist').val();
+  const $headers = $sel('#ta_headerlist');
+  let text = $headers.value;
   if ( !text || text.trim() == '') {
     text = defaultHeaders;
-    //saveSetting('ta_headerlist', text);
   }
   let reformedText = reformIndents(text);
-  if (reformedText != text) {
+  if (reformedText != $headers.value) {
     saveSetting('ta_headerlist', reformedText);
-    $('#ta_headerlist').val(reformedText);
+    $headers.value = reformedText;
   }
 }
 
@@ -735,87 +682,52 @@ function saveSetting(key, value) {
 }
 
 function applyState() {
-    Object.keys(datamodel)
+  Object.keys(datamodel)
     .forEach(key => {
-      let value = datamodel[key],
-          $item = $('#' + key);
+      const value = datamodel[key],
+            $item = $sel('#' + key);
       if (key.startsWith('sel-')) {
-        // selection
-        $item.find("option[value='"+value+"']")
-          .prop('selected', 'selected')
-          .trigger("change");
+        const $option = $item.querySelector(`option[value='${value}']`);
+        if ($option) {
+          $option.selected = true;
+        }
       }
       else if (key.startsWith('chk-')) {
-        $item.prop("checked", (String(value) == 'true'));
+        $item.checked = (String(value) == 'true');
       }
-      else {
-        $item.val(value);
+      else if (value) {
+        $item.value = value;
       }
     });
 
-  let alg = datamodel['sel-alg'];
-  if (!alg) {
-    alg = 'rsa-sha256'; // default
-    saveSetting('sel-alg', alg);
-    let $item = $('#sel-alg');
-    $item.find("option[value='"+alg+"']")
-      .prop('selected', 'selected')
-      .trigger("change");
+  if (!datamodel['sel-alg']) {
+    saveSetting('sel-alg', selectedText('#sel-alg')); // default
   }
-  let flavor = algFlavor(alg);
-  if (flavor == 'hmac') {
-    $('#symmetrickey').show();
-    $('#privatekey').hide();
-    $('#publickey').hide();
-    let coding = $('.sel-symkey-coding').find(':selected').text();
-    if (coding == 'PBKDF2') {
-      $('#pbkdf2_params').show();
-    }
-    else {
-      $('#pbkdf2_params').hide();
-    }
-  }
-  else {
-    $('#symmetrickey').hide();
-    //$('#pbkdf2_params').hide();
-    $('#privatekey').show();
-    $('#publickey').show();
-  }
+  updateUiForAlg(selectedText('#sel-alg'));
 }
 
-$(document).ready(function() {
-  $('#version_id').text(BUILD_VERSION);
-  $('.btn-copy').on('click', copyToClipboard);
-  $('.btn-generate').on('click', generateSignature);
-  $('.btn-verify').on('click', verifySignature);
-  $('.btn-newkey').on('click', newKey);
+document.addEventListener('DOMContentLoaded', () => {
+  $sel('#version_id').textContent = BUILD_VERSION;
+  $all('.btn-copy').forEach(btn => btn.addEventListener('click', copyToClipboard));
+  $sel('.btn-generate').addEventListener('click', generateSignature);
+  $sel('.btn-verify').addEventListener('click', verifySignature);
+  $all('.btn-newkey').forEach(btn => btn.addEventListener('click', newKey));
 
-  $('#ta_privatekey').on('paste', handlePaste);
-  $('#ta_publickey').on('paste', handlePaste);
-
-  $('#mainalert').addClass('fade');
-  $('#mainalert').on('close.bs.alert', closeAlert);
-
-  $('#hs2019-settings').hide();
+  ['#ta_privatekey', '#ta_publickey'].forEach(id =>
+    $sel(id).addEventListener('paste', handlePaste));
+  ['#ta_privatekey', '#ta_publickey', '#ta_symmetrickey', '#ta_headerlist', '#ta-keyid'].forEach(id =>
+    $sel(id).addEventListener('input', e => saveSetting(e.currentTarget.id, e.currentTarget.value)));
 
   retrieveLocalState();
+  applyState();
   fixupHeaderList();
 
-  $('.sel-symkey-coding').on('change', changeSymmetricKeyCoding);
-  $('#sel-alg').on('change', onChangeAlg);
-  $('#sel-expiry').on('change', onChangeExpiry);
-  $('#chk-created').on('change', onChangeCreated);
+  $sel('#sel-symkey-coding').addEventListener('change', changeSymmetricKeyCoding);
+  $sel('#sel-alg').addEventListener('change', onChangeAlg);
+  $sel('#sel-expiry').addEventListener('change', onChangeExpiry);
+  $sel('#chk-created').addEventListener('change', onChangeCreated);
 
-  applyState();
-
-  let flavor = algFlavor(datamodel['sel-alg']);
-  if ( ! datamodel.ta_symmetrickey && flavor == 'hmac') {
+  if (keysMissingFor(algFlavor(selectedText('#sel-alg')))) {
     newKey();
   }
-  else if (( ! datamodel.ta_privatekey || !datamodel.ta_privatekey) && flavor == 'rsa') {
-    newKey();
-  }
-
-  //onChangeAlg.call(document.querySelector('#sel-alg'), null);
-
 });

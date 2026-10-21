@@ -3,18 +3,10 @@
   <head>
     <title>Online HTTP Signature tool</title>
     <meta charset="utf-8">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="An online tool to perform HTTP Signature computation and verification. HMAC or RSA." />
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-105867635-3"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'UA-105867635-3');
-    </script>
     <script type="module" crossorigin src="./js/main.js"></script>
     <link rel="stylesheet" crossorigin href="./css/main.css">
   </head>
@@ -170,7 +162,7 @@
       <div class='footer'>
         <div>Notes</div>
         <ol>
-          <li>Information that you paste here, including signatures and keys, whether secret, private or public, never leaves your browser. Information from the decoding also stays in the browser. Nothing gets posted to a server. Still, you should take care. It's good hygiene to never send private information, production private keys, or provate credentials to a site you do not own and manage.</li>
+          <li>Information that you paste here, including signatures and keys, whether secret, private or public, never leaves your browser. Information from the decoding also stays in the browser. Nothing gets posted to a server. Still, you should take care. It's good hygiene to never send private information, production private keys, or private credentials to a site you do not own and manage.</li>
           <li>This tool uses EcmaScript v9, and webcrypto; it will run only on modern, current browsers.</li>
           <li>For generating and verifying HTTP Signature, this page supports rsa-sha256, hmac-sha256, or hs2019 with rsa or hmac variants.</li>
           <li>To generate:
@@ -201,15 +193,13 @@
       <div class='footer'>
         <div>Credits</div>
         <p>
-          This page uses the <a href='https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API'>webcrypto</a> for key derivation, generation, signing and verification. It also uses <a href='https://getbootstrap.com/docs/4.0'>Bootstrap 4.0</a> for styling, the <a href='https://useiconic.com/open/'>Open Iconic fonts</a> for button symbols, and <a href='https://jquery.com/'>jQuery</a> for interactivity. </p>
+          This page uses the <a href='https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API'>webcrypto</a> for key derivation, generation, signing and verification. It also uses <a href='https://getbootstrap.com/docs/4.0'>Bootstrap 4.0</a> for styling, and the <a href='https://useiconic.com/open/'>Open Iconic fonts</a> for button symbols. </p>
 
         <!--
         <p>The code for this page is <a href='https://github.com/DinoChiesa/httpsig-webtool'>here</a>. You can download it, fork it, or submit issues via that link.</p>
         -->
         <p>
-          This was written by <A href='https://github.com/DinoChiesa/'>DinoChiesa</a>. Contact me with questions, suggestions, or kudos via <a href="https://twitter.com/intent/tweet?screen_name=dpchiesa&ref_src=twsrc%5Etfw&text=regarding%20HTTPSIG%20webtool"
-                                                                                                                                      class="twitter-share-button" data-show-count="false">Twitter</a>.
-          <!-- script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script -->
+          This was written by <A href='https://github.com/DinoChiesa/'>DinoChiesa</a>. Contact me with questions, suggestions, or kudos via <a href='https://github.com/DinoChiesa/'>Github</a> or <a href="https://bsky.app/profile/ionicshade.bsky.social">BlueSky</a>.
         </p>
 
       </div>

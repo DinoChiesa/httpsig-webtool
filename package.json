@@ -23,9 +23,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "bootstrap": "^4.5.3",
-    "jquery": "^3.5.0",
-    "open-iconic": "^1.1.1",
-    "popper.js": "^1.16.0"
+    "open-iconic": "^1.1.1"
   },
   "devDependencies": {
     "sass": "^1.89.2",
