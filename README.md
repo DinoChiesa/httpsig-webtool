@@ -1,6 +1,7 @@
-# HTTP Signature Web tool
+# HTTP Message Signatures Web tool
 
-This is the source code for a web tool that can generate HTTP Signatures.
+This is the source code for a web tool that can create and verify HTTP Message
+Signatures, as defined in [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421).
 It has some limitations!
 
 ![screengrab](images/screenshot-20191115-083624.png)
@@ -12,22 +13,34 @@ Source License v2.0. For information see the [LICENSE](LICENSE) file.
 
 ## Purpose
 
-I built this as a tool that might be helpful to developers learning HTTP Signature, or
-experimenting with HTTP Signature.  The output of this repo is currently
-running [here](https://dinochiesa.github.io/httpsig/).
+I built this as a tool that might be helpful to developers learning HTTP
+Message Signatures, or experimenting with them.  The output of this repo is
+currently running [here](https://dinochiesa.github.io/httpsig/).
+
+Earlier versions implemented the draft-cavage-http-signatures specification.
+RFC 9421 supersedes that draft; this tool now implements only RFC 9421.
 
 ## Disclaimer
 
 This tool is not an official Google product, nor is it part of an official
 Google product.
 
-## Limitations
+## Features and limitations
 
-This tool has some limitations:
- - algorithms: rsa-sha256, hmac-sha256, hs2019 (either hmac or rsa)
+ - algorithms: rsa-pss-sha512, rsa-v1_5-sha256, ecdsa-p256-sha256,
+   ecdsa-p384-sha384, ed25519, hmac-sha256.
 
- - This tool uses EcmaScript v9, and webcrypto, which means it will run only on
-   modern, current browsers.
+ - covered components: HTTP fields, and the derived components @method,
+   @target-uri, @authority, @scheme, @request-target, @path, @query,
+   @query-param, and @status. The sf, key, bs, req, and tr component
+   parameters are not supported.
+
+ - signature parameters: created, expires, keyid, alg, nonce, tag.
+
+ - keys: PEM. PKCS#8 and SPKI, plus PKCS#1 RSA keys and SEC1 EC private keys.
+
+ - This tool uses webcrypto, which means it will run only on modern, current
+   browsers. Ed25519 needs a recent browser.
 
 ## Design
 
@@ -38,16 +51,13 @@ static files.
 
 ## Dependencies
 
-The web app depends on
-* [jQuery](https://jquery.com/) - for interactivity
-* [Bootstrap 4.0](https://getbootstrap.com/) - for UI and styling
-* [node-jose](https://github.com/cisco/node-jose) - for PBKDF2
-* [webcrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) - for generating RSA and ECDSA keys
-
+The web app has no runtime dependencies beyond the browser:
+* [webcrypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) - for key generation, PBKDF2, signing and verifying
 
 ## Build Dependencies
 
-This tool uses [webpack v4](https://webpack.js.org/) for bundling the assets.
+This tool uses [Vite](https://vite.dev/) for bundling the assets, and
+[Sass](https://sass-lang.com/) for the stylesheet.
 
 ## Please send pull requests
 
@@ -57,33 +67,32 @@ I'm always looking for constructive feedback.
 
 If you fork this repo to mess with the code, here's what I advise.
 
-To build a "development" distribution:
+During development, run the Vite dev server, which reloads the page as you
+modify the source code:
 
 ```
-npm run devbuild
+npm run dev
 ```
 
-During development, I prefer to use the webpack "watch" capability, which
-rebuilds as I modify the source code. For that, open a Chrome browser tab to
-file:///path/to/dist/index.html .  Then in a terminal,
+To run the tests, which check the implementation against the test vectors in
+RFC 9421 Appendix B:
 
 ```
-npm run watch
+npm test
 ```
 
-The above command will run "forever", and will rebundle when any source file
-changes. When you save a file, wait a few seconds for the build, maybe 5
-seconds, and then just click the reload button in the browser tab, to see the
-updates.
-
-
-To build a production distribution:
+To build a production distribution into `dist/`:
 
 ```
 npm run build
 ```
 
+To serve the production build locally:
+
+```
+npm run preview
+```
+
 ## Bugs
 
 * ??
-

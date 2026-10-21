@@ -228,3 +228,41 @@ textarea {
 .outdated {
   background-color: $greyedout;
 }
+
+// RFC 9421 additions; the full restyle replaces this file.
+.panel-center {
+  width: 180px;
+
+  > button,
+  > select {
+    width: 180px;
+  }
+
+  > div input[type='text'] {
+    width: 100%;
+  }
+
+  label {
+    display: block;
+    margin: 0;
+  }
+}
+
+.panel-right {
+  margin-left: 780px;
+}
+
+#components label {
+  display: block;
+  font-family: monospace;
+  font-size: 55%;
+  margin: 0;
+}
+
+.stale {
+  background-color: $greyedout;
+}
+
+.is-error {
+  color: #b00020;
+}

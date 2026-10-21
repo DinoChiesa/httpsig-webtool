@@ -1,39 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>Online HTTP Signature tool</title>
+    <title>Online HTTP Message Signatures tool</title>
     <meta charset="utf-8">
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="An online tool to perform HTTP Signature computation and verification. HMAC or RSA." />
+    <meta name="description" content="An online tool to create and verify HTTP Message Signatures (RFC 9421). RSA, ECDSA, Ed25519 or HMAC." />
   </head>
 
   <!-- ======================================================= -->
   <body>
     <div class='container'>
       <div class='banner'>
-        <h2>HTTP Signature Verifier and Generator</h2>
-        <div>For information on HTTP Signature see <a href='https://datatracker.ietf.org/doc/draft-cavage-http-signatures/?include_text=1'>the draft specification</a>.</div>
+        <h2>HTTP Message Signatures: Signer and Verifier</h2>
+        <div>For information on HTTP Message Signatures see <a href='https://www.rfc-editor.org/rfc/rfc9421'>IETF RFC 9421</a>.</div>
         <div class="alert alert-warning alert-dismissible fade" role="alert" id="mainalert"></div>
         <div id='buildversion' class='buildversion'>version <span id='version_id'>??</span></div>
       </div>
 
       <div class='panel-group'>
         <div class='panel panel-left' id='panel_left'>
-          <div id='headers'>
-            <p>Headers to sign
-              <button type="button" class="btn btn-outline-secondary btn-md btn-copy" data-target="ta_headerlist" title='copy to clipboard'>
+          <div id='message'>
+            <p>HTTP Message
+              <button type="button" class="btn btn-outline-secondary btn-md btn-copy" data-target="ta_message" title='copy to clipboard'>
                 <span class="oi oi-clipboard"></span>
               </button>
             </p>
-            <textarea rows=12 cols=34 id='ta_headerlist' spellcheck='false' class='plaintextvalue'>
-            </textarea>
+            <textarea rows=12 cols=34 id='ta_message' spellcheck='false' class='plaintextvalue'></textarea>
           </div>
           <div id='privatekey' title='paste in your private key, it does not leave your browser'>
             <p>Private Key
               <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
-                      data-target="ta_privatekey" title="copy to clipboard">
+                      data-target="ta_privatekey">
                 <span class="oi oi-clipboard"></span>
               </button>
               <button type="button" class="btn btn-outline-secondary btn-md btn-newkey"
@@ -46,16 +45,16 @@
           <div id='publickey'>
             <p>Public Key
               <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
-                      data-target="ta_publickey" title="copy to clipboard">
+                      data-target="ta_publickey">
                 <span class="oi oi-clipboard"></span>
               </button>
             </p>
             <textarea rows=12 cols=34 id='ta_publickey' spellcheck='false' class='plaintextvalue'></textarea>
           </div>
           <div id='symmetrickey'>
-            <p>Symmetric Key
+            <p>Shared Secret
               <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
-                      data-target="ta_symmetrickey" title="copy to clipboard">
+                      data-target="ta_symmetrickey">
                 <span class="oi oi-clipboard"></span>
               </button>
               <button type="button" class="btn btn-outline-secondary btn-md btn-newkey"
@@ -95,35 +94,38 @@
               </div>
             </div>
           </div>
-
         </div>
 
         <div class='panel panel-center' id='panel_buttons'>
-          <select class="form-control form-control-sm sel-alg" id='sel-alg'>
-            <option value='rsa-sha256'>rsa-sha256</option>
+          <select class="form-control form-control-sm sel-alg" id='sel-alg' title='signature algorithm'>
+            <option value='rsa-pss-sha512'>rsa-pss-sha512</option>
+            <option value='rsa-v1_5-sha256'>rsa-v1_5-sha256</option>
+            <option value='ecdsa-p256-sha256'>ecdsa-p256-sha256</option>
+            <option value='ecdsa-p384-sha384'>ecdsa-p384-sha384</option>
+            <option value='ed25519'>ed25519</option>
             <option value='hmac-sha256'>hmac-sha256</option>
-            <option value='hs2019 (rsa)'>hs2019 (rsa)</option>
-            <option value='hs2019 (hmac)'>hs2019 (hmac)</option>
           </select>
 
-
           <div>
-            <span>keyId:</span>
-            <input type='text' id='ta-keyid' value='abcdefg' class='form-control-sm' spellcheck='false'>
+            <span>label:</span>
+            <input type='text' id='ta-label' value='sig1' class='form-control-sm' spellcheck='false'>
           </div>
-
-          <button type="button" class="btn btn-outline-secondary btn-lg btn-generate" title='generate an HTTP Signature header'>
-            <span class="oi oi-arrow-thick-right"></span>
-          </button>
-
-          <button type="button" class="btn btn-outline-secondary btn-lg btn-verify" title='verify a signature'>
-            <span class="oi oi-check"></span>
-          </button>
-          <div id='hs2019-settings'>
-            <span style='margin-right:6px;'>created:</span>
-            <input id='chk-created' type='checkbox' />
-            <div style='margin-bottom:6px;'>expires:</div>
-            <select class="form-control form-control-sm sel-expiry" id='sel-expiry' title='specify expiry.' style='margin-top:6px;'>
+          <div>
+            <span>keyid:</span>
+            <input type='text' id='ta-keyid' value='test-key' class='form-control-sm' spellcheck='false'>
+          </div>
+          <div>
+            <span>tag:</span>
+            <input type='text' id='ta-tag' value='' class='form-control-sm' spellcheck='false'>
+          </div>
+          <div>
+            <label><input id='chk-created' type='checkbox' /> created</label>
+            <label><input id='chk-alg' type='checkbox' /> alg</label>
+            <label><input id='chk-nonce' type='checkbox' /> nonce</label>
+          </div>
+          <div>
+            <span>expires:</span>
+            <select class="form-control form-control-sm sel-expiry" id='sel-expiry' title='specify expiry.'>
               <option value='no expiry'>no expiry</option>
               <option value='10 seconds'>10 seconds</option>
               <option value='60 seconds'>60 seconds</option>
@@ -131,60 +133,81 @@
               <option value='30 minutes'>30 minutes</option>
             </select>
           </div>
+
+          <button type="button" class="btn btn-outline-secondary btn-lg btn-sign" title='sign the message'>
+            Sign <span class="oi oi-arrow-thick-right"></span>
+          </button>
+
+          <button type="button" class="btn btn-outline-secondary btn-lg btn-verify" title='verify the signature'>
+            Verify <span class="oi oi-check"></span>
+          </button>
         </div>
 
         <div class='panel panel-right clearfix' id='panel_right'>
+          <div id='covered'>
+            <p>Covered Components</p>
+            <div id='components'></div>
+          </div>
+
+          <div id='sigbase'>
+            <p>Signature Base
+              <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
+                      data-target="ta_sigbase">
+                <span class="oi oi-clipboard"></span>
+              </button>
+            </p>
+            <textarea rows=10 cols=34 id='ta_sigbase' spellcheck='false' class='plaintextvalue' readonly></textarea>
+          </div>
+
+          <div id='siginput'>
+            <p>Signature-Input
+              <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
+                      data-target="ta_sig_input">
+                <span class="oi oi-clipboard"></span>
+              </button>
+            </p>
+            <textarea rows=4 cols=34 id='ta_sig_input' spellcheck='false' class='plaintextvalue'></textarea>
+          </div>
+
           <div id='signature'>
             <p>Signature
               <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
-                      data-target="ta_signature" title="copy to clipboard">
+                      data-target="ta_signature">
                 <span class="oi oi-clipboard"></span>
               </button>
             </p>
-            <textarea rows=8 cols=34 id='ta_signature' spellcheck='false' class='plaintextvalue'></textarea>
+            <textarea rows=5 cols=34 id='ta_signature' spellcheck='false' class='plaintextvalue'></textarea>
           </div>
-
-          <div id='httpsigheader'>
-            <p>Header
-              <button type="button" title="copy to clipboard" class="btn btn-outline-secondary btn-md btn-copy"
-                      data-target="ta_httpsigheader" title="copy to clipboard">
-                <span class="oi oi-clipboard"></span>
-              </button>
-            </p>
-            <textarea rows=10 cols=34 id='ta_httpsigheader' spellcheck='false' class='plaintextvalue'></textarea>
-          </div>
-
         </div>
       </div>
 
       <div class='footer'>
         <div>Notes</div>
         <ol>
-          <li>Information that you paste here, including signatures and keys, whether secret, private or public, never leaves your browser. Information from the decoding also stays in the browser. Nothing gets posted to a server. Still, you should take care. It's good hygiene to never send private information, production private keys, or private credentials to a site you do not own and manage.</li>
-          <li>This tool uses EcmaScript v9, and webcrypto; it will run only on modern, current browsers.</li>
-          <li>For generating and verifying HTTP Signature, this page supports rsa-sha256, hmac-sha256, or hs2019 with rsa or hmac variants.</li>
-          <li>To generate:
+          <li>Information that you paste here, including messages and keys, whether secret, private or public, never leaves your browser. Nothing gets posted to a server. Still, you should take care. It's good hygiene to never send private information, production private keys, or private credentials to a site you do not own and manage.</li>
+          <li>This tool implements <a href='https://www.rfc-editor.org/rfc/rfc9421'>RFC 9421, HTTP Message Signatures</a>, which supersedes the earlier draft-cavage-http-signatures specification. It uses webcrypto; it will run only on modern, current browsers. Ed25519 needs a recent browser.</li>
+          <li>Algorithms: rsa-pss-sha512, rsa-v1_5-sha256, ecdsa-p256-sha256, ecdsa-p384-sha384, ed25519, and hmac-sha256.</li>
+          <li>Enter the HTTP message as text: a request line (<tt>POST /path HTTP/1.1</tt> with a Host header, or <tt>POST https://host/path</tt>) or a status line (<tt>HTTP/1.1 200 OK</tt>), then the headers. A body after a blank line is ignored.</li>
+          <li>To sign:
           <ol>
-            <li>paste in the headers in the upper left textarea.</li>
-            <li>select an algorithm in the dropdown.</li>
-            <li>specify an appropriate key.</li>
-            <li>click the right arrow.</li>
+            <li>enter the message, and choose the covered components.</li>
+            <li>select an algorithm, and specify an appropriate key.</li>
+            <li>set the signature parameters: label, keyid, tag, created, alg, nonce, expires.</li>
+            <li>click Sign. The tool produces the Signature-Input and Signature headers.</li>
           </ol></li>
 
           <li>To verify:
           <ol>
-            <li>paste in the headers in the upper left textarea.</li>
-            <li>select an algorithm in the dropdown.</li>
-            <li>specify an appropriate key.</li>
-            <li>paste in your full Signature header in the lower right textarea.</li>
-            <li>click the checkmark icon.</li>
+            <li>enter the message.</li>
+            <li>paste the Signature-Input and Signature values.</li>
+            <li>select the algorithm if the signature has no alg parameter, and specify the key.</li>
+            <li>click Verify. The signature base shows what was checked.</li>
           </ol></li>
 
-          <li>On initial page load, the browser will generate a new RSA keypair and insert it into the appropriate boxes. It also loads some contrived fixed headers. You can replace either or both with your own values.</li>
-          <li>You can generate a new asymmetric keypair by clicking the key button.</li>
-          <li>When specifying the symmetric key, you need at least 32 bytes of key material for hmac-sha256, whether signing or verifying. The <a href='https://en.wikipedia.org/wiki/PBKDF2'>PBKDF2</a> will generate keys of the appropriate size. If you choose a different coding system, you need to ensure minimum key size yourself. </li>
-          <li>This page does not explicitly handle the special values like (target-request), (created), or (expires). I may extend the page in the future to support some or all of those.</li>
-          <li>When using hs2019 with RSA, this page uses a salt length of 64 bytes.  The specification doesn't mention the salt length, and the Signature header doesn't provide a way to specify that, so we use the convention of a salt of the same length as the output hash. This convention is explicitly specified by RFC 7518 (JWS) but is not specified by HTTP Signature.</li>
+          <li>The signature base updates as you change the message, the covered components, or the parameters. After you sign, later changes grey out the Signature-Input and Signature outputs until you sign again.</li>
+          <li>On initial page load, the browser will generate a new keypair and load the test request from RFC 9421 Appendix B. The page keeps your message, keys, and settings in your browser's localStorage. You can generate a new key by clicking the reload button next to the key.</li>
+          <li>When specifying the shared secret for hmac-sha256, you need at least 32 bytes of key material. The <a href='https://en.wikipedia.org/wiki/PBKDF2'>PBKDF2</a> option will derive a key of the appropriate size. If you choose a different coding system, you need to ensure minimum key size yourself.</li>
+          <li>This tool supports HTTP fields and the derived components @method, @target-uri, @authority, @scheme, @request-target, @path, @query, @query-param, and @status. It does not support the sf, key, bs, req, or tr component parameters.</li>
         </ol>
       </div>
 

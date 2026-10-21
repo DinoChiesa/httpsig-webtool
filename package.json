@@ -2,12 +2,13 @@
   "name": "httpsig-webtool",
   "version": "1.0.5",
   "description": "web tool to parse, generate, and validate HTTP Signature",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git://github.com/DinoChiesa/httpsig-webtool.git"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test \"test/**/*.test.js\"",
     "dev": "vite",
     "watch": "vite build --mode development --watch",
     "devbuild": "vite build --mode development",
