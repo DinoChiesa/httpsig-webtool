@@ -22,10 +22,6 @@
   ],
   "author": "Dino Chiesa <dchiesa@google.com>",
   "license": "Apache-2.0",
-  "dependencies": {
-    "bootstrap": "^4.5.3",
-    "open-iconic": "^1.1.1"
-  },
   "devDependencies": {
     "sass": "^1.89.2",
     "vite": "^7.0.6"

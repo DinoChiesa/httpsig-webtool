@@ -24,6 +24,7 @@ const datamodel = {
   'chk-created': true,
   'chk-alg': true,
   'chk-nonce': false,
+  'chk-darkmode': true,
   'nonce-value': '',
   'ta-label': 'sig1',
   'ta-keyid': 'test-key',
@@ -537,6 +538,11 @@ function applyState() {
     $sel('#ta_message').value = defaultMessage;
   }
   updateUiForAlg();
+  applyDarkMode();
+}
+
+function applyDarkMode() {
+  document.body.classList.toggle('dark-mode', $sel('#chk-darkmode').checked);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -569,6 +575,10 @@ document.addEventListener('DOMContentLoaded', () => {
       onInputsChanged();
     }));
   $sel('#chk-nonce').addEventListener('change', onChangeNonce);
+  $sel('#chk-darkmode').addEventListener('change', e => {
+    saveSetting('chk-darkmode', String(e.currentTarget.checked));
+    applyDarkMode();
+  });
   $sel('#sel-expiry').addEventListener('change', () => {
     saveSetting('sel-expiry', selectedText('#sel-expiry'));
     onInputsChanged();

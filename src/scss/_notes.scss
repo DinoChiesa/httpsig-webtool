@@ -1,0 +1,19 @@
+.notes-card {
+  padding: 1.75rem 2rem;
+  line-height: 1.65;
+  border-left: 4px solid var(--color-primary);
+
+  ol {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  li {
+    margin-bottom: 0.75rem;
+  }
+
+  p {
+    margin: 0 0 0.4rem;
+    color: var(--color-text);
+  }
+}
