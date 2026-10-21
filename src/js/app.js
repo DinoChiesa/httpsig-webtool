@@ -12,6 +12,7 @@ import {
   parseSignatureFields,
 } from "./rfc9421.js";
 import { keyFamily, importPemKey, importHmacKey, sign, verify, generateKeyPair } from "./sigcrypto.js";
+import { contentDigestValue, contentDigestMatches, digestAlgorithmOf, setHeader } from "./digest.js";
 
 const html5AppId = '04ed4dea-499a-4de6-9e24-0e156b1d6c4d';
 const storage = LocalStorage.init(html5AppId);
@@ -381,11 +382,43 @@ function timeProblems(params) {
   return { reasons, notes };
 }
 
+// Sets the Content-Digest header (RFC 9530) from the message body.
+async function setContentDigest() {
+  try {
+    const message = readMessage();
+    if (message.body === undefined) {
+      throw new Error('the message has no body; add a blank line after the headers, then the body');
+    }
+    const existing = message.fields.find(f => f.name == 'content-digest'),
+          value = await contentDigestValue(message.body, digestAlgorithmOf(existing && existing.values[0])),
+          $message = $sel('#ta_message');
+    $message.value = setHeader($message.value, 'Content-Digest', value);
+    saveSetting('ta_message', $message.value);
+    onInputsChanged();
+  }
+  catch (e) {
+    setAlert('cannot set Content-Digest: ' + (e.message || String(e)));
+  }
+}
+
+// When Content-Digest is covered, a valid signature still says nothing about
+// the body unless the digest matches it.
+async function contentDigestWarning(message, signatureParams) {
+  const covered = signatureParams.value.some(item => item.value == 'content-digest' && !(item.params || []).length),
+        field = message.fields.find(f => f.name == 'content-digest');
+  if (!covered || !field || message.body === undefined) {
+    return '';
+  }
+  const matches = await contentDigestMatches(field.values.join(', '), message.body);
+  return matches === false ? 'Content-Digest does not match the body' : '';
+}
+
 async function verifySignature() {
   try {
     const parsed = parseSignatureFields($sel('#ta_sig_input').value, $sel('#ta_signature').value, signatureLabel()),
           alg = parsed.params.alg || selectedAlg(),
-          base = signatureBase(readMessage(), parsed.signatureParams);
+          message = readMessage(),
+          base = signatureBase(message, parsed.signatureParams);
     setBase(base);
     if (parsed.params.alg && parsed.params.alg != selectedAlg()) {
       throw new Error(`the signature uses alg="${parsed.params.alg}"; select that algorithm and supply its key`);
@@ -395,7 +428,11 @@ async function verifySignature() {
       setAlert(`The signature "${parsed.label}" is not valid.`, 'warning');
       return;
     }
-    const { reasons, notes } = timeProblems(parsed.params);
+    const { reasons, notes } = timeProblems(parsed.params),
+          digestWarning = await contentDigestWarning(message, parsed.signatureParams);
+    if (digestWarning) {
+      reasons.push(digestWarning);
+    }
     if (reasons.length == 0) {
       setAlert(`The signature "${parsed.label}" is valid. ` + notes.join('; '), 'success');
     }
@@ -550,6 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $all('.btn-copy').forEach(btn => btn.addEventListener('click', copyToClipboard));
   $sel('.btn-sign').addEventListener('click', signMessage);
   $sel('.btn-verify').addEventListener('click', verifySignature);
+  $sel('.btn-digest').addEventListener('click', setContentDigest);
   $all('.btn-newkey').forEach(btn => btn.addEventListener('click', newKey));
 
   retrieveLocalState();

@@ -8,7 +8,7 @@
 //   HTTP/1.1 200 OK                              (a response)
 //   Header-Name: value
 //   ...
-//   <blank line, then an optional body, which is ignored>
+//   <blank line, then an optional body>
 
 const DEFAULT_SCHEME = "https";
 
@@ -60,8 +60,14 @@ function resolveTarget(target, fields) {
   throw new Error(`unsupported request target: ${target}`);
 }
 
+// The body is the text after the first blank line, with trailing newlines
+// removed; it is undefined when there is no blank line.
+function bodyOf(lines, blank) {
+  return blank < 0 ? undefined : lines.slice(blank + 1).join("\n").replace(/\n+$/, "");
+}
+
 // Returns a message object:
-//   { isRequest, method, target, url, targetForm, status, fields }
+//   { isRequest, method, target, url, targetForm, status, fields, body }
 function parseMessage(text) {
   const allLines = text.replace(/\r\n/g, "\n").split("\n");
   const firstContent = allLines.findIndex((l) => l.trim() != "");
@@ -73,14 +79,15 @@ function parseMessage(text) {
   const headerLines = lines.slice(1, blank < 0 ? lines.length : blank);
   const firstLine = lines[0].trim();
   const fields = parseFields(headerLines);
+  const body = bodyOf(lines, blank);
 
   const status = /^HTTP\/[0-9.]+\s+([0-9]{3})\b/.exec(firstLine);
   if (status) {
-    return { isRequest: false, status: status[1], fields };
+    return { isRequest: false, status: status[1], fields, body };
   }
   const { method, target } = parseRequestLine(firstLine);
   const { url, form } = resolveTarget(target, fields);
-  return { isRequest: true, method, target, url, targetForm: form, fields };
+  return { isRequest: true, method, target, url, targetForm: form, fields, body };
 }
 
 export { parseMessage };

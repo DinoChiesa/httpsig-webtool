@@ -37,6 +37,10 @@ Google product.
 
  - signature parameters: created, expires, keyid, alg, nonce, tag.
 
+ - Content-Digest ([RFC 9530](https://www.rfc-editor.org/rfc/rfc9530)): a button
+   sets the header from the message body (sha-256 or sha-512), and Verify warns
+   when a covered Content-Digest does not match the body.
+
  - keys: PEM. PKCS#8 and SPKI, plus PKCS#1 RSA keys and SEC1 EC private keys.
 
  - This tool uses webcrypto, which means it will run only on modern, current

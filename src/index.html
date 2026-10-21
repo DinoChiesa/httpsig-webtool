@@ -31,6 +31,9 @@
           <div class="card" id='message'>
             <p class="panel-head"><span class="panel-title">HTTP Message</span>
               <span class="panel-tools">
+                <button type="button" class="btn-icon btn-digest" title='set Content-Digest from the body (RFC 9530)'>
+                  <span class="bi bi-hash"></span>
+                </button>
                 <button type="button" class="btn-icon btn-copy" data-target="ta_message" title='copy to clipboard'>
                   <span class="bi bi-clipboard"></span>
                 </button>
@@ -216,7 +219,8 @@
           <li>Information that you paste here, including messages and keys, whether secret, private or public, never leaves your browser. Nothing gets posted to a server. Still, you should take care. It's good hygiene to never send private information, production private keys, or private credentials to a site you do not own and manage.</li>
           <li>This tool implements <a href='https://www.rfc-editor.org/rfc/rfc9421'>RFC 9421, HTTP Message Signatures</a>, which supersedes the earlier draft-cavage-http-signatures specification. It uses webcrypto; it will run only on modern, current browsers. Ed25519 needs a recent browser.</li>
           <li>Algorithms: rsa-pss-sha512, rsa-v1_5-sha256, ecdsa-p256-sha256, ecdsa-p384-sha384, ed25519, and hmac-sha256.</li>
-          <li>Enter the HTTP message as text: a request line (<tt>POST /path HTTP/1.1</tt> with a Host header, or <tt>POST https://host/path</tt>) or a status line (<tt>HTTP/1.1 200 OK</tt>), then the headers. A body after a blank line is ignored.</li>
+          <li>Enter the HTTP message as text: a request line (<tt>POST /path HTTP/1.1</tt> with a Host header, or <tt>POST https://host/path</tt>) or a status line (<tt>HTTP/1.1 200 OK</tt>), then the headers, then optionally a blank line and the body.</li>
+          <li>The body is not signed directly. To protect it, cover the <tt>Content-Digest</tt> header, defined in <a href='https://www.rfc-editor.org/rfc/rfc9530'>RFC 9530, Digest Fields</a>. The <span class="bi bi-hash"></span> button sets that header from the body, keeping the header's algorithm (sha-256 or sha-512; sha-512 if there is no header yet). When you verify a signature that covers <tt>Content-Digest</tt>, the page also checks the digest against the body, and warns if it does not match. The digest is computed over the body text as entered, with trailing newlines removed, so it may differ from a digest over the exact bytes sent on the wire.</li>
           <li>To sign:
           <ol>
             <li>enter the message, and choose the covered components.</li>
