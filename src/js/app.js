@@ -1,8 +1,9 @@
-/* global atob, Buffer, TextDecoder, BUILD_VERSION, TextEncoder */
+/* global BUILD_VERSION, TextEncoder */
 
 import 'bootstrap';
 import $ from "jquery";
-import NodeRSA from "node-rsa";
+import { pemToDer } from "./pem.js";
+import { bytesFromText, textFromBytes, bytesFromBase64 } from "./encoding.js";
 import SignatureParser from "./SignatureParser.js";
 import LocalStorage from './LocalStorage.js';
 
@@ -154,7 +155,7 @@ function getPbkdf2SaltBuffer() {
   let knownCodecs = ['UTF-8', 'Base64', 'Hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
-    return Buffer.from(keyvalue, coding);
+    return bytesFromText(keyvalue, coding);
   }
   throw new Error('unsupported salt encoding'); // will not happen
 }
@@ -177,7 +178,7 @@ function getSymmetricKey(alg) {
         knownCodecs = ['UTF-8', 'Base64', 'Hex'];
 
   if (knownCodecs.indexOf(coding)>=0) {
-    return Promise.resolve(Buffer.from(keyvalue, coding))
+    return Promise.resolve(bytesFromText(keyvalue, coding))
       .then( keyBuffer => checkKeyLength(alg, keyBuffer))
       .then( keyBuffer => window
              .crypto
@@ -195,7 +196,7 @@ function getSymmetricKey(alg) {
       .crypto
       .subtle
       .importKey('raw',
-                 Buffer.from(keyvalue, 'utf-8'),
+                 bytesFromText(keyvalue, 'utf-8'),
                  {name: 'PBKDF2'},
                  false,
                  ['deriveBits', 'deriveKey'] )
@@ -357,11 +358,11 @@ function generateSignature(event) {
     p = getSymmetricKey(algSelection);
   }
   else if (algSelection == 'rsa-sha256') {
-    let keydata = pem2bin(getPrivateKey());
+    let keydata = pemToDer(getPrivateKey());
     p = window.crypto.subtle.importKey('pkcs8', keydata, {name:'RSASSA-PKCS1-v1_5', hash: 'SHA-256'}, false, ['sign']);
   }
   else if (algSelection == 'hs2019 (rsa)') {
-    let keydata = pem2bin(getPrivateKey());
+    let keydata = pemToDer(getPrivateKey());
     p = window.crypto.subtle.importKey('pkcs8', keydata, {name:'RSA-PSS', hash: 'SHA-512'}, false, ['sign']);
   }
   else {
@@ -414,7 +415,7 @@ function secondsAccuracyIsoString(t) {
 function verifySignature(event) {
   try {
     const sigHeader = SignatureParser.parse($('#ta_httpsigheader').val()),
-          sigBytes = Buffer.from(sigHeader.signature, 'base64'),
+          sigBytes = bytesFromBase64(sigHeader.signature),
           times = {created: sigHeader.created, expires: sigHeader.expires},
           stringToSign = getStringToSign(getHeaders(), times, sigHeader.headers),
           data = new TextEncoder().encode(stringToSign),
@@ -422,7 +423,7 @@ function verifySignature(event) {
           flavor = algFlavor(selectedAlg);
     let p = null;
     if (sigHeader.algorithm == 'rsa-sha256') {
-      let keydata = pem2bin(getPublicKey());
+      let keydata = pemToDer(getPublicKey());
       p = window
         .crypto
         .subtle
@@ -448,7 +449,7 @@ function verifySignature(event) {
     }
     else if ((sigHeader.algorithm == 'hs2019') && (flavor == 'rsa')) {
       // Infer the type of crypto based on the SELECTED alg in the dropdown
-      let keydata = pem2bin(getPublicKey());
+      let keydata = pemToDer(getPublicKey());
       p = window
         .crypto
         .subtle
@@ -558,27 +559,6 @@ function key2pem(flavor, keydata) {
   return `-----BEGIN ${flavor} KEY-----\n${body}\n-----END ${flavor} KEY-----`;
 }
 
-function pem2bin(str) {
-  if (str.indexOf("BEGIN RSA PRIVATE KEY")>0) {
-    const key = new NodeRSA(str);
-    return pkcs8pem2Binary(key.exportKey('pkcs8'));
-  }
-  return pkcs8pem2Binary(str);
-}
-
-function pkcs8pem2Binary(pem) { // pkcs8 only
-  let encoded = pem
-    .split('\n')
-    .filter(line => line.indexOf('-----') < 0)
-    .join('');
-  let byteStr = atob(encoded);
-  let bytes = new Uint8Array(byteStr.length);
-    for (var i = 0; i < byteStr.length; i++) {
-        bytes[i] = byteStr.charCodeAt(i);
-    }
-    return bytes.buffer;
-}
-
 function getGenKeyParams(alg) {
   if (alg == 'rsa-sha256') return {
     name: "RSASSA-PKCS1-v1_5", // this name also works for RSA-PSS !
@@ -605,7 +585,7 @@ function newKey(event) {
       keyString = randomPassword();
     }
     else if (coding == 'Base64' || coding == 'Hex') {
-      keyString = Buffer.from(randomOctetKey()).toString(coding);
+      keyString = textFromBytes(randomOctetKey(), coding);
     }
     if (keyString) {
       $('#ta_symmetrickey').val(keyString);

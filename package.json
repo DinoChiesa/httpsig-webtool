@@ -2,16 +2,17 @@
   "name": "httpsig-webtool",
   "version": "1.0.5",
   "description": "web tool to parse, generate, and validate HTTP Signature",
-  "main": "webpack.config.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/DinoChiesa/httpsig-webtool.git"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": "webpack --output-pathinfo --devtool source-map --mode=development --watch --color",
-    "devbuild": "webpack --output-pathinfo --devtool source-map --mode=development --progress --color",
-    "build": "rm -rf dist/* && webpack --mode=production --progress --color"
+    "dev": "vite",
+    "watch": "vite build --mode development --watch",
+    "devbuild": "vite build --mode development",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [
     "HTTPSignature",
@@ -22,32 +23,16 @@
   "license": "Apache-2.0",
   "dependencies": {
     "bootstrap": "^4.5.3",
-    "buffer": "^6.0.3",
-    "constants-browserify": "^1.0.0",
-    "crypto-browserify": "^3.12.0",
     "jquery": "^3.5.0",
-    "node-rsa": "^1.0.7",
     "open-iconic": "^1.1.1",
-    "popper.js": "^1.16.0",
-    "stream-browserify": "^3.0.0"
+    "popper.js": "^1.16.0"
   },
   "devDependencies": {
-    "child_process": "^1.0.2",
-    "copy-webpack-plugin": "^8.1.1",
-    "css-loader": "^6.7.1",
-    "mini-css-extract-plugin": "^1.5.0",
-    "sass-loader": "^12.3.0",
-    "node-sass": "^7.0.1",
-    "style-loader": "^3.3.1",
-    "url-loader": "^4.1.1",
-    "webpack": "^5.35.0",
-    "webpack-cli": "^4.9.1"
-  },
-  "overrides": {
-    "json5": "^2.2.3"
+    "sass": "^1.89.2",
+    "vite": "^7.0.6"
   },
   "engines": {
-    "node": ">= 12.22.0",
-    "npm": ">= 8.3.0"
+    "node": ">= 20.19.0",
+    "npm": ">= 10.0.0"
   }
 }

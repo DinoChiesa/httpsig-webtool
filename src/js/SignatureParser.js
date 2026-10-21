@@ -146,7 +146,7 @@ const parseHttpSigHeader = function(str) {
       };
 
 
-module.exports = {
+export default {
   parse: parseHttpSigHeader,
   validAlgorithms
 };
